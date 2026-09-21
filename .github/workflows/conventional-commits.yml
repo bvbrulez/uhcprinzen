@@ -1,0 +1,67 @@
+name: Check Conventional Commits
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            range="${BASE_SHA}..${HEAD_SHA}"
+          elif [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+            range="$AFTER_SHA"
+          else
+            range="${BEFORE_SHA}..${AFTER_SHA}"
+          fi
+
+          mapfile -t commits < <(git rev-list --reverse "$range")
+          if ((${#commits[@]} == 0)); then
+            echo "No commits to validate."
+            exit 0
+          fi
+
+          pattern='^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\([a-z0-9._/-]+\))?!?: .{1,72}$'
+          invalid=0
+
+          for commit in "${commits[@]}"; do
+            message="$(git log -1 --format=%B "$commit" | sed '/^[[:space:]]*#/d;/^[[:space:]]*$/d' | head -n 1)"
+            if [[ ! "$message" =~ $pattern ]]; then
+              echo "::error title=Invalid commit message::$commit: $message"
+              invalid=1
+            else
+              echo "OK $commit: $message"
+            fi
+          done
+
+          if ((invalid)); then
+            {
+              echo
+              echo "Expected: <type>(<scope>)?: <description>"
+              echo "Allowed types: feat, fix, docs, style, refactor, test, chore, build, ci, perf, revert"
+              echo "The description must contain 1-72 characters."
+            } >&2
+            exit 1
+          fi
