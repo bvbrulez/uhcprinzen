@@ -17,9 +17,10 @@ Ansicht ohne Supabase bleiben Platzhalter für Team und Spielplan sichtbar.
 
 ## Supabase einrichten
 
-1. Projekt in Supabase anlegen.
-2. In `src/supabase-config.js` die Projekt-URL und den **anon public key**
-   eintragen. Der `service_role`-Key darf niemals in den Browser gelangen.
+1. Das konfigurierte Projekt ist `boymeoxuwnhountijfml.supabase.co`.
+2. Falls ein anderes Supabase-Projekt verwendet werden soll, die Projekt-URL
+   und den **anon public key** in `src/supabase-config.js` ersetzen. Der
+   `service_role`-Key darf niemals in den Browser gelangen.
 3. Im SQL-Editor das Datenmodell und die Zugriffsregeln anlegen:
 
    ```sql
@@ -60,7 +61,9 @@ Ansicht ohne Supabase bleiben Platzhalter für Team und Spielplan sichtbar.
      on public.transactions for insert to authenticated with check (true);
    ```
 
-4. Unter **Authentication → Users** die berechtigten Mitglieder anlegen.
+4. Unter **Authentication → Users** die berechtigten Mitglieder anlegen. Der
+   Login-Bereich verwendet Supabase `signInWithPassword` und stellt bestehende
+   Sessions beim Laden der Seite automatisch wieder her.
 5. Die Seite über GitHub Pages veröffentlichen oder `src/` auf einen statischen
    Webserver deployen.
 
