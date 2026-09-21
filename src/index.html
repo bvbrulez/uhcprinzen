@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Die Wesselbleker Prinzen – Freizeit-Hockey im Uhlenhorster Hockey Club." />
+    <title>UHC Prinzen</title>
+    <link rel="icon" href="assets/uhc-logo.png" type="image/png" />
+    <link rel="stylesheet" href="styles/base.css" />
+    <link rel="stylesheet" href="styles/components.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#home" aria-label="UHC Prinzen Startseite">
+        <img src="assets/uhc-logo.png" alt="" />
+        <span>UHC Prinzen</span>
+      </a>
+      <nav class="site-nav" aria-label="Hauptnavigation">
+        <a href="#home">Über uns</a>
+        <a href="#team">Team</a>
+        <a href="#spielplan">Spielplan</a>
+        <a href="#finanzen">Finanzen</a>
+        <button id="login-toggle" class="button button-small" type="button">Anmelden</button>
+        <button id="logout-button" class="button button-small" type="button" hidden>Abmelden</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="home" class="hero">
+        <div class="hero-overlay">
+          <img src="assets/uhc-logo.png" alt="UHC Prinzen Logo" />
+          <p class="eyebrow">Uhlenhorster Hockey Club</p>
+          <h1>Wesselbleker Prinzen</h1>
+          <p>Freizeit-Hockey mit Leidenschaft, Teamgeist und Tradition.</p>
+        </div>
+      </section>
+
+      <section class="content-grid intro-grid" aria-labelledby="about-heading">
+        <article class="card">
+          <p class="eyebrow">Über uns</p>
+          <h2 id="about-heading">Hockey, Freundschaft und ein gutes Miteinander</h2>
+          <p>Die Wesselbleker Prinzen sind die Ü35-Freizeithockeymannschaft des Uhlenhorster Hockey Clubs. Bei uns sind Routinierinnen und Routiniers, Wiedereinsteiger und Hockeybegeisterte gleichermaßen willkommen.</p>
+          <p>Neben der Sixpack Liga gehören Auslandsturniere und unser Prinzen Herbst Cup zu den Höhepunkten jeder Saison.</p>
+        </article>
+        <figure class="card image-card">
+          <img src="assets/team-photo.jpg" alt="Mannschaftsfoto der Prinzen" />
+          <figcaption>Mannschaftsfoto 2025 – Kopenhagen-Turnier</figcaption>
+        </figure>
+      </section>
+
+      <section id="team" class="card" aria-labelledby="team-heading">
+        <p class="eyebrow">Mannschaft</p>
+        <h2 id="team-heading">Unser Team</h2>
+        <div id="team-list" class="team-grid" aria-live="polite"><p class="muted">Team wird geladen …</p></div>
+      </section>
+
+      <section id="spielplan" class="card" aria-labelledby="schedule-heading">
+        <p class="eyebrow">Termine</p>
+        <h2 id="schedule-heading">Spielplan</h2>
+        <div id="schedule-list" class="schedule-list"><p class="muted">Spielplan wird geladen …</p></div>
+      </section>
+
+      <section id="finanzen" class="card finance-section" aria-labelledby="finance-heading">
+        <div class="section-heading">
+          <div><p class="eyebrow">Mannschaftskasse</p><h2 id="finance-heading">Finanzübersicht</h2></div>
+          <span id="auth-state" class="status" role="status">Nur für angemeldete Mitglieder</span>
+        </div>
+        <div id="finance-content" hidden>
+          <div class="summary-grid">
+            <div class="summary-card income"><span>Einnahmen</span><strong id="total-income">0,00 €</strong></div>
+            <div class="summary-card expense"><span>Ausgaben</span><strong id="total-expenses">0,00 €</strong></div>
+            <div class="summary-card balance"><span>Saldo</span><strong id="total-balance">0,00 €</strong></div>
+          </div>
+          <div class="finance-toolbar">
+            <label>Jahr <select id="year-filter"></select></label>
+            <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
+          </div>
+          <div class="table-scroll">
+            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th></tr></thead><tbody id="transaction-list"></tbody></table>
+          </div>
+          <p id="finance-status" class="status" role="status" aria-live="polite"></p>
+        </div>
+        <p id="finance-login-hint" class="muted">Melde dich an, um die Mannschaftskasse zu sehen.</p>
+      </section>
+    </main>
+
+    <footer><span>© <span id="copyright-year"></span> Wesselbleker Prinzen im UHC</span><a href="mailto:clemens@uhc-prinzen.de">Kontakt</a></footer>
+
+    <dialog id="login-dialog">
+      <form id="login-form" class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Mannschaftskasse</p><h2>Anmelden</h2>
+        <label>E-Mail <input id="email" type="email" autocomplete="username" required /></label>
+        <label>Passwort <input id="password" type="password" autocomplete="current-password" required /></label>
+        <button class="button" type="submit">Anmelden</button><p id="login-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+    <dialog id="transaction-dialog">
+      <form id="transaction-form" class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Mannschaftskasse</p><h2>Neue Buchung</h2>
+        <label>Typ <select id="transaction-type" required><option value="INCOME">Einnahme</option><option value="EXPENSE">Ausgabe</option></select></label>
+        <label>Beschreibung <input id="transaction-description" required maxlength="120" /></label>
+        <label>Betrag in Euro <input id="transaction-amount" type="number" min="0.01" step="0.01" required /></label>
+        <label>Datum <input id="transaction-date" type="date" required /></label>
+        <label>Kategorie <input id="transaction-category" required maxlength="60" /></label>
+        <button class="button" type="submit">Speichern</button><p id="transaction-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script type="module" src="scripts/app.js"></script>
+  </body>
+</html>

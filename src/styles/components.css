@@ -1,0 +1,56 @@
+.site-header { align-items: center; background: var(--navy); display: flex; gap: 1.5rem; justify-content: space-between; padding: .8rem max(1rem, calc((100% - 70rem) / 2)); position: sticky; top: 0; z-index: 2; }
+.brand { align-items: center; color: #fff; display: flex; font-size: 1.15rem; font-weight: 800; gap: .6rem; text-decoration: none; }
+.brand img { height: 2.4rem; width: 2.4rem; }
+.site-nav { align-items: center; display: flex; flex-wrap: wrap; gap: .8rem; justify-content: flex-end; }
+.site-nav a { color: #d9e6ed; font-size: .92rem; text-decoration: none; }
+.site-nav a:hover { color: #fff; }
+.button { background: var(--blue); border: 1px solid var(--blue); border-radius: .45rem; color: #fff; font-weight: 750; padding: .65rem 1rem; }
+.button:hover, .button:focus-visible { background: #0f4e64; }
+.button-small { font-size: .85rem; padding: .45rem .75rem; }
+.hero { align-items: center; background: linear-gradient(90deg, rgb(16 45 73 / 78%), rgb(16 45 73 / 20%)), url("../assets/hg-bild.jpg") center / cover; border-radius: 1rem; color: #fff; display: flex; min-height: min(36rem, 70vh); overflow: hidden; }
+.hero-overlay { max-width: 42rem; padding: clamp(2rem, 7vw, 5rem); }
+.hero-overlay img { height: 5rem; margin-bottom: 1rem; width: 5rem; }
+.hero h1 { color: #fff; margin-bottom: .8rem; }
+.hero p:last-child { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
+.content-grid { display: grid; gap: 1.5rem; grid-template-columns: 1.1fr .9fr; }
+.image-card { margin: 0; padding: .7rem; }
+.image-card img { border-radius: .65rem; display: block; height: 100%; min-height: 16rem; object-fit: cover; width: 100%; }
+.image-card figcaption { color: var(--muted); font-size: .8rem; padding: .65rem .3rem .1rem; }
+.team-grid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+.team-member { background: #eef6f8; border-left: .25rem solid var(--gold); border-radius: .5rem; display: grid; gap: .2rem; padding: .8rem 1rem; }
+.team-member span { color: var(--muted); font-size: .88rem; }
+.schedule-list { display: grid; gap: .6rem; }
+.schedule-item { align-items: center; border-bottom: 1px solid var(--line); display: grid; gap: .2rem 1rem; grid-template-columns: 7rem 1fr auto; padding: .7rem 0; }
+.schedule-item time { color: var(--blue); font-weight: 750; }
+.schedule-item span { color: var(--muted); }
+.section-heading, .finance-toolbar { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
+.summary-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin: 1.5rem 0; }
+.summary-card { border: 1px solid; border-radius: .65rem; display: grid; gap: .35rem; padding: 1rem; }
+.summary-card span { color: var(--muted); font-size: .8rem; font-weight: 750; text-transform: uppercase; }
+.summary-card strong { font-size: 1.45rem; }
+.summary-card.income { background: #edf8f4; border-color: #b5dfd0; }
+.summary-card.expense { background: #fff2f0; border-color: #ebc7c1; }
+.summary-card.balance { background: #eef3fb; border-color: #c4d2e9; }
+.finance-toolbar { margin-bottom: 1rem; }
+.finance-toolbar label, .dialog-form label { display: grid; font-weight: 650; gap: .35rem; }
+input, select { border: 1px solid #a7bbc4; border-radius: .4rem; min-height: 2.5rem; padding: .45rem .6rem; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; min-width: 40rem; width: 100%; }
+th, td { border-bottom: 1px solid var(--line); padding: .7rem .4rem; text-align: left; }
+th { color: var(--muted); font-size: .78rem; text-transform: uppercase; }
+.number { text-align: right; }
+.positive { color: #137455; }
+.negative { color: #b1423e; }
+dialog { border: 0; border-radius: .9rem; box-shadow: 0 1rem 4rem rgb(0 0 0 / 25%); max-width: 28rem; padding: 0; width: calc(100% - 2rem); }
+dialog::backdrop { background: rgb(16 45 73 / 55%); }
+.dialog-form { display: grid; gap: 1rem; padding: 2rem; position: relative; }
+.dialog-form h2 { margin-bottom: .2rem; }
+.dialog-close { background: transparent; border: 0; color: var(--muted); font-size: 1.7rem; line-height: 1; position: absolute; right: 1rem; top: .8rem; }
+@media (max-width: 48rem) {
+  .site-header { align-items: flex-start; flex-direction: column; }
+  .site-nav { justify-content: flex-start; }
+  .content-grid, .summary-grid { grid-template-columns: 1fr; }
+  .schedule-item { grid-template-columns: 6rem 1fr; }
+  .schedule-item span { grid-column: 2; }
+  footer { align-items: flex-start; flex-direction: column; }
+}
