@@ -36,3 +36,16 @@ Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
 
 Die GitHub-Action veröffentlicht `src/` bei jedem Push auf `main` automatisch
 als GitHub-Pages-Seite.
+
+## Automatischer Changelog
+
+Die versionierten Git-Hooks einmalig aktivieren:
+
+```sh
+git config core.hooksPath .githooks
+chmod +x .githooks/pre-commit
+```
+
+Der `pre-commit`-Hook ergänzt vor jedem Commit die am aktuellen Tag geänderten
+Dateien in `CHANGELOG.md`. Beim anschließenden Push ist der Changelog damit
+bereits Bestandteil des Commits.

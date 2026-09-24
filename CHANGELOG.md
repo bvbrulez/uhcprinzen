@@ -45,6 +45,20 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Finanzübersicht und Login unverändert beibehalten.
 
 ## 2026-09-24
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-24:
+- `A – .githooks/README.md`
+- `A – .githooks/pre-commit`
+- `M – README.md`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-24:
+- `A – .githooks/README.md`
+- `A – .githooks/pre-commit`
+- `M – README.md`
+
 
 ### `b8037d4` – fix: add Supabase transactions schema
 

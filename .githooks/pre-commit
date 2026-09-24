@@ -1,0 +1,57 @@
+#!/bin/sh
+
+set -eu
+
+changelog="CHANGELOG.md"
+date_today=$(date +%Y-%m-%d)
+staged_files=$(git diff --cached --name-status -- . ':(exclude)CHANGELOG.md')
+
+if [ -z "$staged_files" ]; then
+  exit 0
+fi
+
+if [ ! -f "$changelog" ]; then
+  {
+    printf '%s\n\n' '# Changelog'
+    printf '%s\n\n' 'Alle Änderungen sind chronologisch nach Commit aufgeführt.'
+  } > "$changelog"
+fi
+
+temp_file=$(mktemp)
+file_list=$(mktemp)
+trap 'rm -f "$temp_file" "$file_list"' EXIT
+
+printf '%s\n' "$staged_files" | sed 's/	/ – /; s/^/- `/; s/$/`/' > "$file_list"
+
+awk -v date="$date_today" -v file_list="$file_list" '
+  function print_entry() {
+    print "### Änderungen aus diesem Commit"
+    print ""
+    print "- Aktualisiert am " date ":"
+    while ((getline line < file_list) > 0) print line
+    close(file_list)
+    print ""
+  }
+  $0 == "## " date {
+    print
+    print_entry()
+    inserted = 1
+    next
+  }
+  {
+    print
+  }
+  END {
+    if (!inserted) {
+      print ""
+      print "## " date
+      print ""
+      print_entry()
+    }
+  }
+' "$changelog" > "$temp_file"
+
+mv "$temp_file" "$changelog"
+git add "$changelog"
+
+printf '%s\n' "CHANGELOG.md wurde für $date_today aktualisiert."
