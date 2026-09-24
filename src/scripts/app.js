@@ -32,7 +32,7 @@ function setAuthenticated(nextSession) {
 
 async function loadTransactions() {
   if (!supabaseClient) throw new Error("Supabase ist noch nicht konfiguriert.");
-  const { data, error } = await supabaseClient.from("transactions").select("id, type, description, amount, transaction_date, category").order("transaction_date", { ascending: false });
+  const { data, error } = await supabaseClient.from("transactions").select("id, type, account, description, amount, transaction_date, category").order("transaction_date", { ascending: false });
   if (error) throw error;
   transactions = data || [];
   const years = [...new Set([String(new Date().getFullYear()), ...transactions.map(item => item.transaction_date.slice(0, 4))])].sort().reverse();
@@ -45,21 +45,25 @@ function renderTransactions() {
   const filtered = transactions.filter(item => item.transaction_date.startsWith(year));
   const income = filtered.filter(item => item.type === "INCOME").reduce((sum, item) => sum + Number(item.amount), 0);
   const expenses = filtered.filter(item => item.type === "EXPENSE").reduce((sum, item) => sum + Number(item.amount), 0);
+  const balanceFor = account => filtered.filter(item => item.account === account).reduce((sum, item) => sum + (item.type === "INCOME" ? Number(item.amount) : -Number(item.amount)), 0);
   setText("#total-income", money(income));
   setText("#total-expenses", money(expenses));
   setText("#total-balance", money(income - expenses));
+  setText("#bank-balance", money(balanceFor("BANK")));
+  setText("#paypal-balance", money(balanceFor("PAYPAL")));
   transactionList.replaceChildren(...filtered.map(item => {
     const row = document.createElement("tr");
-    row.innerHTML = "<td></td><td></td><td></td><td class=\"number\"></td><td></td>";
+    row.innerHTML = "<td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td>";
     row.children[0].textContent = formatDate(item.transaction_date);
-    row.children[1].textContent = item.description;
-    row.children[2].textContent = item.type === "INCOME" ? "Einnahme" : "Ausgabe";
-    row.children[3].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
-    row.children[3].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
-    row.children[4].textContent = item.category;
+    row.children[1].textContent = item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
+    row.children[2].textContent = item.description;
+    row.children[3].textContent = item.type === "INCOME" ? "Einnahme" : "Ausgabe";
+    row.children[4].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
+    row.children[4].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
+    row.children[5].textContent = item.category;
     return row;
   }));
-  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="5" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
+  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="6" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
 }
 
 document.querySelector("#copyright-year").textContent = new Date().getFullYear();
@@ -90,6 +94,7 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
   if (!supabaseClient || !session) return;
   const payload = {
     type: document.querySelector("#transaction-type").value,
+    account: document.querySelector("#transaction-account").value,
     description: document.querySelector("#transaction-description").value.trim(),
     amount: Number(document.querySelector("#transaction-amount").value),
     transaction_date: document.querySelector("#transaction-date").value,

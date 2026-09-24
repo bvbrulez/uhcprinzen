@@ -23,7 +23,8 @@ Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
    `service_role`-Key darf niemals in den Browser gelangen.
 3. Den Inhalt von [`supabase/schema.sql`](supabase/schema.sql) vollständig im
    Supabase SQL Editor ausführen. Dadurch wird die von der Finanzübersicht
-   erwartete Tabelle `public.transactions` inklusive Zugriffsschutz angelegt.
+   erwartete Tabelle `public.transactions` inklusive Konto-Spalte (`BANK` oder
+   `PAYPAL`) und Zugriffsschutz angelegt bzw. aktualisiert.
 
 4. Unter **Authentication → Users** die berechtigten Mitglieder anlegen. Der
    Login-Bereich verwendet Supabase `signInWithPassword` und stellt bestehende

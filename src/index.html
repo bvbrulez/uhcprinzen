@@ -39,16 +39,20 @@
         </div>
         <div id="finance-content" hidden>
           <div class="summary-grid">
-            <div class="summary-card income"><span>Einnahmen</span><strong id="total-income">0,00 €</strong></div>
-            <div class="summary-card expense"><span>Ausgaben</span><strong id="total-expenses">0,00 €</strong></div>
-            <div class="summary-card balance"><span>Saldo</span><strong id="total-balance">0,00 €</strong></div>
+            <div class="summary-card income"><span>Gesamteinnahmen · beide Konten</span><strong id="total-income">0,00 €</strong></div>
+            <div class="summary-card expense"><span>Gesamtausgaben · beide Konten</span><strong id="total-expenses">0,00 €</strong></div>
+            <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
+          </div>
+          <div class="account-summary-grid">
+            <div class="account-summary"><span>Bankkonto</span><strong id="bank-balance">0,00 €</strong></div>
+            <div class="account-summary"><span>PayPal-Konto</span><strong id="paypal-balance">0,00 €</strong></div>
           </div>
           <div class="finance-toolbar">
             <label>Jahr <select id="year-filter"></select></label>
             <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
           </div>
           <div class="table-scroll">
-            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th></tr></thead><tbody id="transaction-list"></tbody></table>
+            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th></tr></thead><tbody id="transaction-list"></tbody></table>
           </div>
           <p id="finance-status" class="status" role="status" aria-live="polite"></p>
         </div>
@@ -72,6 +76,7 @@
         <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
         <p class="eyebrow">Mannschaftskasse</p><h2>Neue Buchung</h2>
         <label>Typ <select id="transaction-type" required><option value="INCOME">Einnahme</option><option value="EXPENSE">Ausgabe</option></select></label>
+        <label>Konto <select id="transaction-account" required><option value="BANK">Bankkonto</option><option value="PAYPAL">PayPal-Konto</option></select></label>
         <label>Beschreibung <input id="transaction-description" required maxlength="120" /></label>
         <label>Betrag in Euro <input id="transaction-amount" type="number" min="0.01" step="0.01" required /></label>
         <label>Datum <input id="transaction-date" type="date" required /></label>
