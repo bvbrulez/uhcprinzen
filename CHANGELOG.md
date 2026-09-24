@@ -45,48 +45,40 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Finanzübersicht und Login unverändert beibehalten.
 
 ## 2026-09-24
-### Änderungen aus diesem Commit
 
-- Aktualisiert am 2026-09-24:
-- `M – README.md`
-- `A – supabase/base-schema.sql`
-- `M – supabase/schema.sql`
+### `9eb3d0f` – ci: automate daily changelog updates
 
-### Änderungen aus diesem Commit
+- Versionierten `pre-commit`-Hook für automatische Changelog-Einträge ergänzt.
+- Hook-Dokumentation in `.githooks/README.md` und `README.md` hinzugefügt.
 
-- Aktualisiert am 2026-09-24:
-- `M – src/index.html`
-- `M – src/scripts/app.js`
-- `M – src/styles/components.css`
-- `M – supabase/schema.sql`
+### `4ca9ed9` – fix: avoid duplicate changelog entries
 
-### Änderungen aus diesem Commit
+- Doppelte automatische Changelog-Einträge beim Commit verhindert.
 
-- Aktualisiert am 2026-09-24:
-- `M – src/scripts/app.js`
+### `824e2b9` – feat: allow editing transactions
 
-### Änderungen aus diesem Commit
+- Bearbeiten bestehender Buchungen ergänzt.
+- Update-RLS-Policy und Formular für vorhandene Buchungsdaten erweitert.
 
-- Aktualisiert am 2026-09-24:
-- `M – src/index.html`
-- `M – src/scripts/app.js`
-- `M – src/styles/components.css`
-- `M – supabase/schema.sql`
+### `d970489` – feat: manage and clarify transactions
 
-### Änderungen aus diesem Commit
+- Löschen von Buchungen mit Bestätigung ergänzt.
+- Soft-Delete- und Delete-RLS-Unterstützung hinzugefügt.
+- Abbrechen-Button und eindeutige Beschriftung für das Bearbeitungsformular ergänzt.
+- Hinweis zur Bedeutung von Gesamt- und Kontosummen hinzugefügt.
 
-- Aktualisiert am 2026-09-24:
-- `M – src/index.html`
-- `M – src/scripts/app.js`
-- `M – src/styles/components.css`
-- `M – supabase/schema.sql`
+### `ce7211b` – fix: diagnose transaction mutation failures
 
-### Änderungen aus diesem Commit
+- Frontend-Fehler im Login-Submit-Button korrigiert.
+- Update- und Löschvorgänge prüfen jetzt, ob tatsächlich eine Buchung betroffen war.
+- Verständlichere Berechtigungsfehlermeldungen ergänzt.
 
-- Aktualisiert am 2026-09-24:
-- `A – .githooks/README.md`
-- `A – .githooks/pre-commit`
-- `M – README.md`
+### `fd32dde` – feat: paginate and audit transactions
+
+- Serverseitige Filterung nach Jahr und Konto ergänzt.
+- Buchungsliste auf 50 Einträge pro Seite begrenzt.
+- Kontoabhängige Summenfilterung ergänzt.
+- Audit-Felder, Soft-Delete, Index und Datenbank-Trigger ergänzt.
 
 ### `b8037d4` – fix: add Supabase transactions schema
 
@@ -102,3 +94,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Navigationslink und Inhaltsbereich „Über uns“ entfernt.
 - Mannschaftsfoto von der Startseite entfernt.
 - Nicht mehr benötigte CSS-Regeln bereinigt.
+
+### `a4c849d` – refactor: split Supabase base schema and delta
+
+- Basisschema für neue Supabase-Projekte in `supabase/base-schema.sql`
+  ausgelagert.
+- `supabase/schema.sql` auf ein Delta-Migrationsskript für bestehende
+  Installationen umgestellt.
+- README um die getrennten Einrichtungswege ergänzt.
