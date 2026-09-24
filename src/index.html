@@ -61,7 +61,7 @@
             <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
           </div>
           <div class="table-scroll">
-            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th></tr></thead><tbody id="transaction-list"></tbody></table>
+            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
           </div>
           <p id="finance-status" class="status" role="status" aria-live="polite"></p>
           <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
@@ -84,7 +84,7 @@
     <dialog id="transaction-dialog">
       <form id="transaction-form" class="dialog-form">
         <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Mannschaftskasse</p><h2>Neue Buchung</h2>
+        <p class="eyebrow">Mannschaftskasse</p><h2 id="transaction-dialog-title">Neue Buchung</h2>
         <label>Typ <select id="transaction-type" required><option value="INCOME">Einnahme</option><option value="EXPENSE">Ausgabe</option></select></label>
         <label>Konto <select id="transaction-account" required><option value="BANK">Bankkonto</option><option value="PAYPAL">PayPal-Konto</option></select></label>
         <label>Beschreibung <input id="transaction-description" required maxlength="120" /></label>

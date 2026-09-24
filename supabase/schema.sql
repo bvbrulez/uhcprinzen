@@ -32,3 +32,10 @@ create policy "Members can add transactions"
   on public.transactions for insert
   to authenticated
   with check (true);
+
+drop policy if exists "Members can update transactions" on public.transactions;
+create policy "Members can update transactions"
+  on public.transactions for update
+  to authenticated
+  using (true)
+  with check (true);

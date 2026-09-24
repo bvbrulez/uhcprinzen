@@ -12,6 +12,7 @@ const retryTransactions = document.querySelector("#retry-transactions");
 let session = null;
 let transactions = [];
 let loadingTransactions = false;
+let editingTransaction = null;
 
 const money = value => `${Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("de-DE");
@@ -78,13 +79,14 @@ function renderTransactions() {
   setText("#paypal-balance", money(balanceFor("PAYPAL")));
   transactionList.replaceChildren(...filtered.map(item => {
     const row = document.createElement("tr");
-    row.innerHTML = "<td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td>";
+    row.innerHTML = "<td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td><td></td>";
     row.children[0].dataset.label = "Datum";
     row.children[1].dataset.label = "Konto";
     row.children[2].dataset.label = "Beschreibung";
     row.children[3].dataset.label = "Typ";
     row.children[4].dataset.label = "Betrag";
     row.children[5].dataset.label = "Kategorie";
+    row.children[6].dataset.label = "Aktion";
     row.children[0].textContent = formatDate(item.transaction_date);
     row.children[1].textContent = item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
     row.children[2].textContent = item.description;
@@ -92,18 +94,43 @@ function renderTransactions() {
     row.children[4].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
     row.children[4].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
     row.children[5].textContent = item.category;
+    const editButton = document.createElement("button");
+    editButton.className = "button button-secondary button-edit";
+    editButton.type = "button";
+    editButton.textContent = "Ändern";
+    editButton.addEventListener("click", () => openTransactionEditor(item));
+    row.children[6].append(editButton);
     return row;
   }));
-  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="6" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
+  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="7" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
 }
 
 document.querySelector("#copyright-year").textContent = new Date().getFullYear();
 document.querySelector("#login-toggle").addEventListener("click", () => loginDialog.showModal());
-document.querySelector("#new-transaction").addEventListener("click", () => { document.querySelector("#transaction-date").value = new Date().toISOString().slice(0, 10); transactionDialog.showModal(); });
+document.querySelector("#new-transaction").addEventListener("click", () => {
+  editingTransaction = null;
+  document.querySelector("#transaction-form").reset();
+  document.querySelector("#transaction-dialog-title").textContent = "Neue Buchung";
+  document.querySelector("#transaction-date").value = new Date().toISOString().slice(0, 10);
+  transactionDialog.showModal();
+});
 yearFilter.addEventListener("change", renderTransactions);
 accountFilter.addEventListener("change", renderTransactions);
 retryTransactions.addEventListener("click", refreshTransactions);
 document.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => button.closest("dialog").close()));
+
+function openTransactionEditor(transaction) {
+  editingTransaction = transaction;
+  document.querySelector("#transaction-dialog-title").textContent = "Buchung ändern";
+  document.querySelector("#transaction-type").value = transaction.type;
+  document.querySelector("#transaction-account").value = transaction.account;
+  document.querySelector("#transaction-description").value = transaction.description;
+  document.querySelector("#transaction-amount").value = transaction.amount;
+  document.querySelector("#transaction-date").value = transaction.transaction_date;
+  document.querySelector("#transaction-category").value = transaction.category;
+  document.querySelector("#transaction-status").textContent = "";
+  transactionDialog.showModal();
+}
 
 document.querySelector("#login-form").addEventListener("submit", async event => {
   event.preventDefault();
@@ -149,12 +176,17 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
   submit.textContent = "Speichern läuft …";
   status.textContent = "";
   try {
-    const { error } = await supabaseClient.from("transactions").insert(payload);
+    const wasEditing = Boolean(editingTransaction);
+    const query = wasEditing
+      ? supabaseClient.from("transactions").update(payload).eq("id", editingTransaction.id)
+      : supabaseClient.from("transactions").insert(payload);
+    const { error } = await query;
     if (error) throw error;
     document.querySelector("#transaction-form").reset();
     transactionDialog.close();
+    editingTransaction = null;
     await refreshTransactions();
-    setFinanceStatus("Buchung erfolgreich gespeichert.", "status-success");
+    setFinanceStatus(wasEditing ? "Buchung erfolgreich geändert." : "Buchung erfolgreich gespeichert.", "status-success");
   } catch (error) {
     status.textContent = `Speichern fehlgeschlagen: ${error.message}`;
   } finally {
