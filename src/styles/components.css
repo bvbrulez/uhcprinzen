@@ -12,17 +12,6 @@
 .hero-overlay img { height: 5rem; margin-bottom: 1rem; width: 5rem; }
 .hero h1 { color: #fff; margin-bottom: .8rem; }
 .hero p:last-child { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
-.content-grid { display: grid; gap: 1.5rem; grid-template-columns: 1.1fr .9fr; }
-.image-card { margin: 0; padding: .7rem; }
-.image-card img { border-radius: .65rem; display: block; height: 100%; min-height: 16rem; object-fit: cover; width: 100%; }
-.image-card figcaption { color: var(--muted); font-size: .8rem; padding: .65rem .3rem .1rem; }
-.team-grid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
-.team-member { background: #eef6f8; border-left: .25rem solid var(--gold); border-radius: .5rem; display: grid; gap: .2rem; padding: .8rem 1rem; }
-.team-member span { color: var(--muted); font-size: .88rem; }
-.schedule-list { display: grid; gap: .6rem; }
-.schedule-item { align-items: center; border-bottom: 1px solid var(--line); display: grid; gap: .2rem 1rem; grid-template-columns: 7rem 1fr auto; padding: .7rem 0; }
-.schedule-item time { color: var(--blue); font-weight: 750; }
-.schedule-item span { color: var(--muted); }
 .section-heading, .finance-toolbar { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
 .summary-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin: 1.5rem 0; }
 .summary-card { border: 1px solid; border-radius: .65rem; display: grid; gap: .35rem; padding: 1rem; }
@@ -49,8 +38,6 @@ dialog::backdrop { background: rgb(16 45 73 / 55%); }
 @media (max-width: 48rem) {
   .site-header { align-items: flex-start; flex-direction: column; }
   .site-nav { justify-content: flex-start; }
-  .content-grid, .summary-grid { grid-template-columns: 1fr; }
-  .schedule-item { grid-template-columns: 6rem 1fr; }
-  .schedule-item span { grid-column: 2; }
+  .summary-grid { grid-template-columns: 1fr; }
   footer { align-items: flex-start; flex-direction: column; }
 }
