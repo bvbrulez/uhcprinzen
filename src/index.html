@@ -47,7 +47,19 @@
             <div class="account-summary"><span>Bankkonto</span><strong id="bank-balance">0,00 €</strong></div>
             <div class="account-summary"><span>PayPal-Konto</span><strong id="paypal-balance">0,00 €</strong></div>
           </div>
-          <p class="finance-explanation">Die Summen beziehen sich immer auf beide Konten. Der Kontofilter gilt nur für die Buchungsliste.</p>
+          <p class="finance-explanation">Ohne aktivierten Summenfilter beziehen sich die Summen auf beide Konten. Mit Summenfilter werden nur die Daten des ausgewählten Kontos ausgewertet.</p>
+          <div class="analytics-grid">
+            <section class="analytics-card" aria-labelledby="monthly-heading">
+              <h3 id="monthly-heading">Monatsübersicht</h3>
+              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span></div>
+              <div id="monthly-summary" class="monthly-summary"></div>
+            </section>
+            <section class="analytics-card" aria-labelledby="category-heading">
+              <h3 id="category-heading">Ausgaben nach Kategorie</h3>
+              <p class="analytics-caption">Die Balken zeigen den Anteil an der stärksten Kategorie.</p>
+              <div id="category-summary" class="category-summary"></div>
+            </section>
+          </div>
           <div class="finance-toolbar">
             <div class="filter-controls">
               <label>Jahr <select id="year-filter"></select></label>

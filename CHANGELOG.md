@@ -45,6 +45,14 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Finanzübersicht und Login unverändert beibehalten.
 
 ## 2026-09-24
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-24:
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+- `M – supabase/schema.sql`
+
 
 ### `9eb3d0f` – ci: automate daily changelog updates
 

@@ -16,9 +16,11 @@ const cancelTransaction = document.querySelector("#cancel-transaction");
 const previousPage = document.querySelector("#previous-page");
 const nextPage = document.querySelector("#next-page");
 const pageStatus = document.querySelector("#page-status");
+const monthlySummary = document.querySelector("#monthly-summary");
+const categorySummary = document.querySelector("#category-summary");
 let session = null;
 let transactions = [];
-let summaryTransactions = [];
+let transactionAnalytics = null;
 let currentPage = 0;
 const pageSize = 50;
 let totalPages = 0;
@@ -28,6 +30,19 @@ let editingTransaction = null;
 const money = value => `${Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("de-DE");
 const setText = (selector, value) => { document.querySelector(selector).textContent = value; };
+const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+async function loadTransactionYears() {
+  const { data, error } = await supabaseClient.rpc("get_transaction_years");
+  if (!error) return (data || []).map(item => String(item.year));
+  if (error.code !== "PGRST202") throw error;
+  const { data: fallbackData, error: fallbackError } = await supabaseClient
+    .from("transactions")
+    .select("transaction_date")
+    .is("deleted_at", null);
+  if (fallbackError) throw fallbackError;
+  return [...new Set(fallbackData.map(item => item.transaction_date.slice(0, 4)))];
+}
 
 function setAuthenticated(nextSession) {
   session = nextSession;
@@ -51,28 +66,24 @@ async function loadTransactions() {
     .order("transaction_date", { ascending: false })
     .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
   if (accountFilter.value !== "ALL") query = query.eq("account", accountFilter.value);
-  const summaryQuery = supabaseClient.from("transactions")
-    .select("id, type, account, amount")
-    .gte("transaction_date", `${year}-01-01`)
-    .lt("transaction_date", `${Number(year) + 1}-01-01`)
-    .is("deleted_at", null);
-  const [{ data, count, error }, { data: summaryData, error: summaryError }] = await Promise.all([query, summaryQuery]);
+  const analyticsAccount = summaryFilter.checked && accountFilter.value !== "ALL" ? accountFilter.value : null;
+  const analyticsPromise = supabaseClient.rpc("get_transaction_analytics", {
+    p_year: Number(year),
+    p_account: analyticsAccount,
+  });
+  const yearsPromise = loadTransactionYears();
+  const [{ data, count, error }, { data: analyticsData, error: analyticsError }, years] = await Promise.all([query, analyticsPromise, yearsPromise]);
   if (error) throw error;
-  if (summaryError) throw summaryError;
+  if (analyticsError) throw analyticsError;
   transactions = data || [];
-  summaryTransactions = summaryData || [];
+  transactionAnalytics = analyticsData;
   totalPages = Math.max(1, Math.ceil((count || 0) / pageSize));
   previousPage.disabled = currentPage === 0;
   nextPage.disabled = currentPage >= totalPages - 1;
   pageStatus.textContent = `Seite ${currentPage + 1} von ${totalPages}`;
-  const { data: yearData, error: yearError } = await supabaseClient
-    .from("transactions")
-    .select("transaction_date")
-    .is("deleted_at", null);
-  if (yearError) throw yearError;
-  const years = [...new Set([String(new Date().getFullYear()), ...(yearData || []).map(item => item.transaction_date.slice(0, 4))])].sort().reverse();
-  const selectedYear = yearFilter.value || years[0];
-  yearFilter.replaceChildren(...years.map(value => new Option(value, value, value === selectedYear, value === selectedYear)));
+  const availableYears = [...new Set([String(new Date().getFullYear()), ...years])].sort().reverse();
+  const selectedYear = availableYears.includes(yearFilter.value) ? yearFilter.value : availableYears[0];
+  yearFilter.replaceChildren(...availableYears.map(value => new Option(value, value, value === selectedYear, value === selectedYear)));
   renderTransactions();
 }
 
@@ -103,17 +114,13 @@ async function refreshTransactions() {
 
 function renderTransactions() {
   const filtered = transactions;
-  const totals = summaryFilter.checked && accountFilter.value !== "ALL"
-    ? transactions
-    : summaryTransactions;
-  const income = totals.filter(item => item.type === "INCOME").reduce((sum, item) => sum + Number(item.amount), 0);
-  const expenses = totals.filter(item => item.type === "EXPENSE").reduce((sum, item) => sum + Number(item.amount), 0);
-  const balanceFor = accountName => totals.filter(item => item.account === accountName).reduce((sum, item) => sum + (item.type === "INCOME" ? Number(item.amount) : -Number(item.amount)), 0);
-  setText("#total-income", money(income));
-  setText("#total-expenses", money(expenses));
-  setText("#total-balance", money(income - expenses));
-  setText("#bank-balance", money(balanceFor("BANK")));
-  setText("#paypal-balance", money(balanceFor("PAYPAL")));
+  const totals = transactionAnalytics?.totals || {};
+  setText("#total-income", money(totals.income));
+  setText("#total-expenses", money(totals.expenses));
+  setText("#total-balance", money(Number(totals.income) - Number(totals.expenses)));
+  setText("#bank-balance", money(transactionAnalytics?.accounts?.BANK));
+  setText("#paypal-balance", money(transactionAnalytics?.accounts?.PAYPAL));
+  renderAnalytics(transactionAnalytics);
   transactionList.replaceChildren(...filtered.map(item => {
     const row = document.createElement("tr");
     row.innerHTML = "<td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td><td></td><td></td>";
@@ -150,6 +157,54 @@ function renderTransactions() {
   if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="8" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
 }
 
+function renderAnalytics(analytics) {
+  const months = monthNames.map((name, index) => {
+    const month = analytics?.months?.find(item => Number(item.month) === index);
+    return { name, income: month?.income || 0, expenses: month?.expenses || 0 };
+  });
+  const maxAmount = Math.max(1, ...months.flatMap(item => [item.income, item.expenses]));
+  monthlySummary.replaceChildren(...months.map(item => {
+    const row = document.createElement("div");
+    row.className = "month-row";
+    const label = document.createElement("span");
+    label.textContent = item.name;
+    const bars = document.createElement("div");
+    bars.className = "month-bars";
+    const incomeBar = document.createElement("i");
+    incomeBar.className = "income-bar";
+    incomeBar.style.width = `${Number(item.income) / maxAmount * 100}%`;
+    incomeBar.title = `Einnahmen: ${money(item.income)}`;
+    const expenseBar = document.createElement("i");
+    expenseBar.className = "expense-bar";
+    expenseBar.style.width = `${Number(item.expenses) / maxAmount * 100}%`;
+    expenseBar.title = `Ausgaben: ${money(item.expenses)}`;
+    bars.append(incomeBar, expenseBar);
+    const balance = document.createElement("small");
+    balance.textContent = money(Number(item.income) - Number(item.expenses));
+    balance.title = "Monatssaldo";
+    row.append(label, bars, balance);
+    return row;
+  }));
+
+  const categoryEntries = analytics?.categories || [];
+  const maxCategory = Math.max(1, ...categoryEntries.map(([, amount]) => amount));
+  categorySummary.replaceChildren(...(categoryEntries.length ? categoryEntries : [["Keine Ausgaben", 0]]).map(([category, amount]) => {
+    const row = document.createElement("div");
+    row.className = "category-row";
+    const label = document.createElement("span");
+    label.textContent = category;
+    const bar = document.createElement("div");
+    bar.className = "category-bar";
+    const fill = document.createElement("i");
+    fill.style.width = `${Number(amount) / maxCategory * 100}%`;
+    bar.append(fill);
+    const total = document.createElement("strong");
+    total.textContent = money(amount);
+    row.append(label, bar, total);
+    return row;
+  }));
+}
+
 document.querySelector("#copyright-year").textContent = new Date().getFullYear();
 document.querySelector("#login-toggle").addEventListener("click", () => loginDialog.showModal());
 document.querySelector("#new-transaction").addEventListener("click", () => {
@@ -162,7 +217,7 @@ document.querySelector("#new-transaction").addEventListener("click", () => {
 });
 yearFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
 accountFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
-summaryFilter.addEventListener("change", renderTransactions);
+summaryFilter.addEventListener("change", refreshTransactions);
 retryTransactions.addEventListener("click", refreshTransactions);
 previousPage.addEventListener("click", () => {
   if (currentPage === 0) return;

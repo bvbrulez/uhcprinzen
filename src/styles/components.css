@@ -32,6 +32,23 @@
 .account-summary strong { color: var(--navy); }
 .finance-toolbar { margin-bottom: 1rem; }
 .finance-explanation { color: var(--muted); font-size: .9rem; margin: -0.5rem 0 1rem; }
+.analytics-grid { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; margin: 0 0 1.5rem; }
+.analytics-card { border: 1px solid var(--line); border-radius: .65rem; padding: 1rem; }
+.analytics-card h3 { color: var(--navy); font-size: 1rem; margin: 0 0 .8rem; }
+.analytics-caption { color: var(--muted); font-size: .78rem; margin: -.4rem 0 .8rem; }
+.analytics-legend { color: var(--muted); display: flex; flex-wrap: wrap; font-size: .75rem; gap: 1rem; margin: -.35rem 0 .8rem; }
+.analytics-legend span { align-items: center; display: inline-flex; gap: .35rem; }
+.analytics-legend i { border-radius: 50%; display: inline-block; height: .65rem; width: .65rem; }
+.legend-income { background: #54ad8b; }
+.legend-expense { background: #d7776f; }
+.monthly-summary, .category-summary { display: grid; gap: .35rem; }
+.month-row, .category-row { align-items: center; display: grid; gap: .6rem; grid-template-columns: 2.2rem 1fr auto; min-height: 1.45rem; }
+.month-row span, .category-row span { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.month-bars, .category-bar { background: #edf2f4; border-radius: .2rem; display: flex; height: .7rem; overflow: hidden; }
+.month-bars i, .category-bar i { display: block; min-width: 0; }
+.income-bar { background: #54ad8b; }
+.expense-bar, .category-bar i { background: #d7776f; }
+.month-row small, .category-row strong { font-size: .75rem; text-align: right; white-space: nowrap; }
 .filter-controls { display: flex; flex-wrap: wrap; gap: 1rem; }
 .checkbox-label { align-items: center; display: flex !important; gap: .5rem !important; }
 .checkbox-label input { min-height: auto; }
@@ -58,6 +75,7 @@ dialog::backdrop { background: rgb(16 45 73 / 55%); }
   .site-nav { justify-content: flex-start; }
   .summary-grid { grid-template-columns: 1fr; }
   .account-summary-grid { grid-template-columns: 1fr; }
+  .analytics-grid { grid-template-columns: 1fr; }
   .finance-toolbar { align-items: stretch; flex-direction: column; }
   .filter-controls { flex-direction: column; }
   .filter-controls label, .finance-toolbar .button { width: 100%; }
