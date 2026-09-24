@@ -21,10 +21,13 @@ Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
 2. Falls ein anderes Supabase-Projekt verwendet werden soll, die Projekt-URL
    und den **anon public key** in `src/supabase-config.js` ersetzen. Der
    `service_role`-Key darf niemals in den Browser gelangen.
-3. Den Inhalt von [`supabase/schema.sql`](supabase/schema.sql) vollständig im
-   Supabase SQL Editor ausführen. Dadurch wird die von der Finanzübersicht
-   erwartete Tabelle `public.transactions` inklusive Konto-Spalte (`BANK` oder
-   `PAYPAL`) und Zugriffsschutz angelegt bzw. aktualisiert.
+3. Bei einem neuen Supabase-Projekt zuerst
+   [`supabase/base-schema.sql`](supabase/base-schema.sql) einmalig ausführen.
+   Bei einem bestehenden Projekt die Basistabelle `public.transactions`
+   unverändert lassen und nur das Delta-Skript
+   [`supabase/schema.sql`](supabase/schema.sql) ausführen. Es ergänzt Konto-
+   und Audit-Spalten, Soft-Delete, Index, Trigger und die aktuellen RLS-
+   Policies. Das Delta-Skript erstellt die Basistabelle bewusst nicht erneut.
 
 4. Unter **Authentication → Users** die berechtigten Mitglieder anlegen. Der
    Login-Bereich verwendet Supabase `signInWithPassword` und stellt bestehende
