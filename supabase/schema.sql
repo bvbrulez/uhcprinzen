@@ -7,6 +7,10 @@ create table if not exists public.transactions (
   amount numeric(10, 2) not null check (amount > 0),
   transaction_date date not null,
   category text not null check (char_length(category) between 1 and 60),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id),
+  deleted_at timestamptz,
+  deleted_by uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
 
@@ -18,6 +22,11 @@ alter table public.transactions
 
 alter table public.transactions
   add constraint transactions_account_check check (account in ('BANK', 'PAYPAL'));
+
+alter table public.transactions add column if not exists updated_at timestamptz not null default now();
+alter table public.transactions add column if not exists updated_by uuid references auth.users(id);
+alter table public.transactions add column if not exists deleted_at timestamptz;
+alter table public.transactions add column if not exists deleted_by uuid references auth.users(id);
 
 alter table public.transactions enable row level security;
 
@@ -41,7 +50,23 @@ create policy "Members can update transactions"
   with check (true);
 
 drop policy if exists "Members can delete transactions" on public.transactions;
-create policy "Members can delete transactions"
-  on public.transactions for delete
-  to authenticated
-  using (true);
+
+create or replace function public.set_transaction_audit_fields()
+returns trigger
+language plpgsql
+security invoker
+as $$
+begin
+  new.updated_at = now();
+  new.updated_by = auth.uid();
+  if new.deleted_at is not null and old.deleted_at is null then
+    new.deleted_by = auth.uid();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists transactions_audit on public.transactions;
+create trigger transactions_audit
+before update on public.transactions
+for each row execute function public.set_transaction_audit_fields();

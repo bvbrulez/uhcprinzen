@@ -8,12 +8,20 @@ const financeHint = document.querySelector("#finance-login-hint");
 const transactionList = document.querySelector("#transaction-list");
 const yearFilter = document.querySelector("#year-filter");
 const accountFilter = document.querySelector("#account-filter");
+const summaryFilter = document.querySelector("#summary-filter");
 const retryTransactions = document.querySelector("#retry-transactions");
 const transactionForm = document.querySelector("#transaction-form");
 const transactionSubmit = document.querySelector("#transaction-submit");
 const cancelTransaction = document.querySelector("#cancel-transaction");
+const previousPage = document.querySelector("#previous-page");
+const nextPage = document.querySelector("#next-page");
+const pageStatus = document.querySelector("#page-status");
 let session = null;
 let transactions = [];
+let summaryTransactions = [];
+let currentPage = 0;
+const pageSize = 50;
+let totalPages = 0;
 let loadingTransactions = false;
 let editingTransaction = null;
 
@@ -34,11 +42,37 @@ function setAuthenticated(nextSession) {
 
 async function loadTransactions() {
   if (!supabaseClient) throw new Error("Supabase ist noch nicht konfiguriert.");
-  const { data, error } = await supabaseClient.from("transactions").select("id, type, account, description, amount, transaction_date, category").order("transaction_date", { ascending: false });
+  const year = yearFilter.value || String(new Date().getFullYear());
+  let query = supabaseClient.from("transactions")
+    .select("id, type, account, description, amount, transaction_date, category, updated_at", { count: "exact" })
+    .gte("transaction_date", `${year}-01-01`)
+    .lt("transaction_date", `${Number(year) + 1}-01-01`)
+    .is("deleted_at", null)
+    .order("transaction_date", { ascending: false })
+    .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
+  if (accountFilter.value !== "ALL") query = query.eq("account", accountFilter.value);
+  const summaryQuery = supabaseClient.from("transactions")
+    .select("id, type, account, amount")
+    .gte("transaction_date", `${year}-01-01`)
+    .lt("transaction_date", `${Number(year) + 1}-01-01`)
+    .is("deleted_at", null);
+  const [{ data, count, error }, { data: summaryData, error: summaryError }] = await Promise.all([query, summaryQuery]);
   if (error) throw error;
+  if (summaryError) throw summaryError;
   transactions = data || [];
-  const years = [...new Set([String(new Date().getFullYear()), ...transactions.map(item => item.transaction_date.slice(0, 4))])].sort().reverse();
-  yearFilter.replaceChildren(...years.map(year => new Option(year, year)));
+  summaryTransactions = summaryData || [];
+  totalPages = Math.max(1, Math.ceil((count || 0) / pageSize));
+  previousPage.disabled = currentPage === 0;
+  nextPage.disabled = currentPage >= totalPages - 1;
+  pageStatus.textContent = `Seite ${currentPage + 1} von ${totalPages}`;
+  const { data: yearData, error: yearError } = await supabaseClient
+    .from("transactions")
+    .select("transaction_date")
+    .is("deleted_at", null);
+  if (yearError) throw yearError;
+  const years = [...new Set([String(new Date().getFullYear()), ...(yearData || []).map(item => item.transaction_date.slice(0, 4))])].sort().reverse();
+  const selectedYear = yearFilter.value || years[0];
+  yearFilter.replaceChildren(...years.map(value => new Option(value, value, value === selectedYear, value === selectedYear)));
   renderTransactions();
 }
 
@@ -68,13 +102,13 @@ async function refreshTransactions() {
 }
 
 function renderTransactions() {
-  const year = yearFilter.value;
-  const account = accountFilter.value;
-  const yearTransactions = transactions.filter(item => item.transaction_date.startsWith(year));
-  const filtered = yearTransactions.filter(item => account === "ALL" || item.account === account);
-  const income = yearTransactions.filter(item => item.type === "INCOME").reduce((sum, item) => sum + Number(item.amount), 0);
-  const expenses = yearTransactions.filter(item => item.type === "EXPENSE").reduce((sum, item) => sum + Number(item.amount), 0);
-  const balanceFor = accountName => yearTransactions.filter(item => item.account === accountName).reduce((sum, item) => sum + (item.type === "INCOME" ? Number(item.amount) : -Number(item.amount)), 0);
+  const filtered = transactions;
+  const totals = summaryFilter.checked && accountFilter.value !== "ALL"
+    ? transactions
+    : summaryTransactions;
+  const income = totals.filter(item => item.type === "INCOME").reduce((sum, item) => sum + Number(item.amount), 0);
+  const expenses = totals.filter(item => item.type === "EXPENSE").reduce((sum, item) => sum + Number(item.amount), 0);
+  const balanceFor = accountName => totals.filter(item => item.account === accountName).reduce((sum, item) => sum + (item.type === "INCOME" ? Number(item.amount) : -Number(item.amount)), 0);
   setText("#total-income", money(income));
   setText("#total-expenses", money(expenses));
   setText("#total-balance", money(income - expenses));
@@ -82,7 +116,7 @@ function renderTransactions() {
   setText("#paypal-balance", money(balanceFor("PAYPAL")));
   transactionList.replaceChildren(...filtered.map(item => {
     const row = document.createElement("tr");
-    row.innerHTML = "<td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td><td></td>";
+    row.innerHTML = "<td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td><td></td><td></td>";
     row.children[0].dataset.label = "Datum";
     row.children[1].dataset.label = "Konto";
     row.children[2].dataset.label = "Beschreibung";
@@ -90,6 +124,7 @@ function renderTransactions() {
     row.children[4].dataset.label = "Betrag";
     row.children[5].dataset.label = "Kategorie";
     row.children[6].dataset.label = "Aktion";
+    row.children[7].dataset.label = "Aktion";
     row.children[0].textContent = formatDate(item.transaction_date);
     row.children[1].textContent = item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
     row.children[2].textContent = item.description;
@@ -97,21 +132,22 @@ function renderTransactions() {
     row.children[4].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
     row.children[4].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
     row.children[5].textContent = item.category;
+    row.children[6].textContent = item.updated_at ? formatDate(item.updated_at.slice(0, 10)) : "–";
     const editButton = document.createElement("button");
     editButton.className = "button button-secondary button-edit";
     editButton.type = "button";
     editButton.textContent = "Ändern";
     editButton.addEventListener("click", () => openTransactionEditor(item));
-    row.children[6].append(editButton);
+    row.children[7].append(editButton);
     const deleteButton = document.createElement("button");
     deleteButton.className = "button button-danger button-edit";
     deleteButton.type = "button";
     deleteButton.textContent = "Löschen";
     deleteButton.addEventListener("click", () => deleteTransaction(item));
-    row.children[6].append(deleteButton);
+    row.children[7].append(deleteButton);
     return row;
   }));
-  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="7" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
+  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="8" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
 }
 
 document.querySelector("#copyright-year").textContent = new Date().getFullYear();
@@ -124,9 +160,20 @@ document.querySelector("#new-transaction").addEventListener("click", () => {
   document.querySelector("#transaction-date").value = new Date().toISOString().slice(0, 10);
   transactionDialog.showModal();
 });
-yearFilter.addEventListener("change", renderTransactions);
-accountFilter.addEventListener("change", renderTransactions);
+yearFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
+accountFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
+summaryFilter.addEventListener("change", renderTransactions);
 retryTransactions.addEventListener("click", refreshTransactions);
+previousPage.addEventListener("click", () => {
+  if (currentPage === 0) return;
+  currentPage -= 1;
+  refreshTransactions();
+});
+nextPage.addEventListener("click", () => {
+  if (currentPage >= totalPages - 1) return;
+  currentPage += 1;
+  refreshTransactions();
+});
 document.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => {
   const dialog = button.closest("dialog");
   if (dialog === transactionDialog) {
@@ -164,12 +211,13 @@ async function deleteTransaction(transaction) {
   try {
     const { data, error } = await supabaseClient
       .from("transactions")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", transaction.id)
-      .select("id");
+      .is("deleted_at", null)
+      .select("id, deleted_at");
     if (error) throw error;
     if (!data?.length) {
-      throw new Error("Die Buchung wurde nicht gelöscht. Prüfe deine Supabase-DELETE-Berechtigung.");
+      throw new Error("Die Buchung wurde nicht gelöscht. Prüfe deine Supabase-UPDATE-Berechtigung.");
     }
     await refreshTransactions();
     setFinanceStatus("Buchung erfolgreich gelöscht.", "status-success");

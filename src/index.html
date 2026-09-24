@@ -58,11 +58,17 @@
                   <option value="PAYPAL">PayPal-Konto</option>
                 </select>
               </label>
+              <label class="checkbox-label"><input id="summary-filter" type="checkbox"> Summen nach Konto filtern</label>
             </div>
             <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
           </div>
           <div class="table-scroll">
-            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
+            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Geändert</th><th><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
+          </div>
+          <div class="pagination">
+            <button id="previous-page" class="button button-secondary" type="button" disabled>← Zurück</button>
+            <span id="page-status" class="muted"></span>
+            <button id="next-page" class="button button-secondary" type="button" disabled>Weiter →</button>
           </div>
           <p id="finance-status" class="status" role="status" aria-live="polite"></p>
           <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
