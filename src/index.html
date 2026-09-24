@@ -48,13 +48,23 @@
             <div class="account-summary"><span>PayPal-Konto</span><strong id="paypal-balance">0,00 €</strong></div>
           </div>
           <div class="finance-toolbar">
-            <label>Jahr <select id="year-filter"></select></label>
+            <div class="filter-controls">
+              <label>Jahr <select id="year-filter"></select></label>
+              <label>Konto
+                <select id="account-filter">
+                  <option value="ALL">Alle Konten</option>
+                  <option value="BANK">Bankkonto</option>
+                  <option value="PAYPAL">PayPal-Konto</option>
+                </select>
+              </label>
+            </div>
             <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
           </div>
           <div class="table-scroll">
             <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th></tr></thead><tbody id="transaction-list"></tbody></table>
           </div>
           <p id="finance-status" class="status" role="status" aria-live="polite"></p>
+          <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
         </div>
         <p id="finance-login-hint" class="muted">Melde dich an, um die Mannschaftskasse zu sehen.</p>
       </section>
