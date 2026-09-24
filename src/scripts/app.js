@@ -162,8 +162,15 @@ async function deleteTransaction(transaction) {
   if (!window.confirm(`Buchung "${label}" wirklich löschen?`)) return;
   setFinanceStatus("Buchung wird gelöscht …");
   try {
-    const { error } = await supabaseClient.from("transactions").delete().eq("id", transaction.id);
+    const { data, error } = await supabaseClient
+      .from("transactions")
+      .delete()
+      .eq("id", transaction.id)
+      .select("id");
     if (error) throw error;
+    if (!data?.length) {
+      throw new Error("Die Buchung wurde nicht gelöscht. Prüfe deine Supabase-DELETE-Berechtigung.");
+    }
     await refreshTransactions();
     setFinanceStatus("Buchung erfolgreich gelöscht.", "status-success");
   } catch (error) {
@@ -174,7 +181,7 @@ async function deleteTransaction(transaction) {
 document.querySelector("#login-form").addEventListener("submit", async event => {
   event.preventDefault();
   const status = document.querySelector("#login-status");
-  const submit = transactionSubmit;
+  const submit = event.currentTarget.querySelector('button[type="submit"]');
   if (!supabaseClient) { status.textContent = "Supabase ist noch nicht konfiguriert."; return; }
   submit.disabled = true;
   submit.textContent = "Anmeldung läuft …";
@@ -217,10 +224,13 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
   const wasEditing = Boolean(editingTransaction);
   try {
     const query = wasEditing
-      ? supabaseClient.from("transactions").update(payload).eq("id", editingTransaction.id)
+      ? supabaseClient.from("transactions").update(payload).eq("id", editingTransaction.id).select("id")
       : supabaseClient.from("transactions").insert(payload);
-    const { error } = await query;
+    const { data, error } = await query;
     if (error) throw error;
+    if (wasEditing && !data?.length) {
+      throw new Error("Die Buchung wurde nicht geändert. Prüfe deine Supabase-UPDATE-Berechtigung.");
+    }
     document.querySelector("#transaction-form").reset();
     transactionDialog.close();
     editingTransaction = null;

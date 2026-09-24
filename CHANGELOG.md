@@ -48,6 +48,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-09-24:
+- `M – src/scripts/app.js`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-24:
 - `M – src/index.html`
 - `M – src/scripts/app.js`
 - `M – src/styles/components.css`
