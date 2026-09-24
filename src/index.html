@@ -12,8 +12,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="#home" aria-label="UHC Prinzen Startseite">
-        <img src="assets/uhc-logo.png" alt="" />
-        <span>UHC Prinzen</span>
+        <img src="assets/uhc-logo.png" alt="UHC Prinzen" />
       </a>
       <nav class="site-nav" aria-label="Hauptnavigation">
         <a href="#finanzen">Finanzen</a>
@@ -37,7 +36,7 @@
           <div><p class="eyebrow">Mannschaftskasse</p><h2 id="finance-heading">Finanzübersicht</h2></div>
           <span id="auth-state" class="status" role="status">Nur für angemeldete Mitglieder</span>
         </div>
-        <div id="finance-content" hidden>
+        <div id="finance-content" hidden aria-busy="false">
           <div class="summary-grid">
             <div class="summary-card income"><span>Gesamteinnahmen · beide Konten</span><strong id="total-income">0,00 €</strong></div>
             <div class="summary-card expense"><span>Gesamtausgaben · beide Konten</span><strong id="total-expenses">0,00 €</strong></div>
@@ -51,7 +50,7 @@
           <div class="analytics-grid">
             <section class="analytics-card" aria-labelledby="monthly-heading">
               <h3 id="monthly-heading">Monatsübersicht</h3>
-              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span></div>
+              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span><span>Saldo wird rechts angezeigt</span></div>
               <div id="monthly-summary" class="monthly-summary"></div>
             </section>
             <section class="analytics-card" aria-labelledby="category-heading">
@@ -72,7 +71,10 @@
               </label>
               <label class="checkbox-label"><input id="summary-filter" type="checkbox"> Summen nach Konto filtern</label>
             </div>
-            <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
+            <div class="toolbar-actions">
+              <button id="export-transactions" class="button button-secondary" type="button">PDF exportieren</button>
+              <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
+            </div>
           </div>
           <div class="table-scroll">
             <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Geändert</th><th><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>

@@ -13,7 +13,7 @@
 .button-edit { font-size: .8rem; padding: .35rem .55rem; }
 .button-danger { background: #b1423e; border-color: #b1423e; }
 .button-danger:hover, .button-danger:focus-visible { background: #8f302d; }
-.hero { align-items: center; background: linear-gradient(90deg, rgb(16 45 73 / 78%), rgb(16 45 73 / 20%)), url("../assets/hg-bild.jpg") center / cover; border-radius: 1rem; color: #fff; display: flex; min-height: min(36rem, 70vh); overflow: hidden; }
+.hero { align-items: center; background: linear-gradient(90deg, rgb(16 45 73 / 78%), rgb(16 45 73 / 20%)), url("../assets/hg-bild.jpg") center / cover; border-radius: 1rem; color: #fff; display: flex; min-height: min(18rem, 35vh); overflow: hidden; }
 .hero-overlay { max-width: 42rem; padding: clamp(2rem, 7vw, 5rem); }
 .hero-overlay img { height: 5rem; margin-bottom: 1rem; object-fit: contain; width: auto; }
 .hero h1 { color: #fff; margin-bottom: .8rem; }
@@ -31,6 +31,7 @@
 .account-summary span { color: var(--muted); font-weight: 700; }
 .account-summary strong { color: var(--navy); }
 .finance-toolbar { margin-bottom: 1rem; }
+.toolbar-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .6rem; }
 .finance-explanation { color: var(--muted); font-size: .9rem; margin: -0.5rem 0 1rem; }
 .analytics-grid { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; margin: 0 0 1.5rem; }
 .analytics-card { border: 1px solid var(--line); border-radius: .65rem; padding: 1rem; }
@@ -39,15 +40,20 @@
 .analytics-legend { color: var(--muted); display: flex; flex-wrap: wrap; font-size: .75rem; gap: 1rem; margin: -.35rem 0 .8rem; }
 .analytics-legend span { align-items: center; display: inline-flex; gap: .35rem; }
 .analytics-legend i { border-radius: 50%; display: inline-block; height: .65rem; width: .65rem; }
-.legend-income { background: #54ad8b; }
-.legend-expense { background: #d7776f; }
+.legend-income { background: repeating-linear-gradient(135deg, #137455 0 2px, #9ed2bf 2px 4px); }
+.legend-expense { background: repeating-linear-gradient(135deg, #8f302d 0 2px, #e5aaa4 2px 4px); }
 .monthly-summary, .category-summary { display: grid; gap: .35rem; }
-.month-row, .category-row { align-items: center; display: grid; gap: .6rem; grid-template-columns: 2.2rem 1fr auto; min-height: 1.45rem; }
+.month-row, .category-row { align-items: center; display: grid; gap: .6rem; min-height: 1.45rem; }
+.month-row { grid-template-columns: 2.2rem 1fr minmax(11rem, auto) auto; }
+.category-row { grid-template-columns: 2.2rem 1fr auto; }
 .month-row span, .category-row span { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .month-bars, .category-bar { background: #edf2f4; border-radius: .2rem; display: flex; height: .7rem; overflow: hidden; }
 .month-bars i, .category-bar i { display: block; min-width: 0; }
-.income-bar { background: #54ad8b; }
-.expense-bar, .category-bar i { background: #d7776f; }
+.income-bar { background: repeating-linear-gradient(135deg, #137455 0 3px, #9ed2bf 3px 6px); }
+.expense-bar, .category-bar i { background: repeating-linear-gradient(135deg, #8f302d 0 3px, #e5aaa4 3px 6px); }
+.month-values { display: flex; flex-direction: column; font-size: .7rem; line-height: 1.25; white-space: nowrap; }
+.income-value { color: #137455 !important; }
+.expense-value { color: #8f302d !important; }
 .month-row small, .category-row strong { font-size: .75rem; text-align: right; white-space: nowrap; }
 .filter-controls { display: flex; flex-wrap: wrap; gap: 1rem; }
 .checkbox-label { align-items: center; display: flex !important; gap: .5rem !important; }
@@ -76,9 +82,12 @@ dialog::backdrop { background: rgb(16 45 73 / 55%); }
   .summary-grid { grid-template-columns: 1fr; }
   .account-summary-grid { grid-template-columns: 1fr; }
   .analytics-grid { grid-template-columns: 1fr; }
+  .month-row { grid-template-columns: 2.2rem 1fr auto; }
+  .month-values { grid-column: 2 / -1; flex-direction: row; gap: .75rem; }
   .finance-toolbar { align-items: stretch; flex-direction: column; }
   .filter-controls { flex-direction: column; }
-  .filter-controls label, .finance-toolbar .button { width: 100%; }
+  .filter-controls label, .finance-toolbar .button, .toolbar-actions { width: 100%; }
+  .toolbar-actions .button { flex: 1; }
   .pagination .button { width: auto; }
   table, thead, tbody, tr, th, td { display: block; }
   thead { position: absolute; height: 1px; overflow: hidden; width: 1px; clip: rect(0, 0, 0, 0); }

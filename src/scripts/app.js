@@ -16,6 +16,7 @@ const cancelTransaction = document.querySelector("#cancel-transaction");
 const previousPage = document.querySelector("#previous-page");
 const nextPage = document.querySelector("#next-page");
 const pageStatus = document.querySelector("#page-status");
+const exportTransactions = document.querySelector("#export-transactions");
 const monthlySummary = document.querySelector("#monthly-summary");
 const categorySummary = document.querySelector("#category-summary");
 let session = null;
@@ -91,24 +92,37 @@ function setFinanceStatus(message, type = "") {
   const status = document.querySelector("#finance-status");
   status.textContent = message;
   status.className = `status ${type}`.trim();
+  status.setAttribute("aria-busy", message.includes("geladen"));
+}
+
+function getFinanceErrorMessage(error) {
+  if (error.code === "42P01") {
+    return "Die Finanzdatenbank ist noch nicht eingerichtet. Bitte supabase/schema.sql im Supabase SQL Editor ausführen.";
+  }
+  if (error.code === "PGRST202" && /get_transaction_(analytics|years)/i.test(error.message || "")) {
+    return "Die Supabase-Erweiterung für Finanzberichte fehlt. Bitte das aktuelle Delta-Skript supabase/schema.sql im Supabase SQL Editor ausführen.";
+  }
+  if (error.code === "42501") {
+    return "Der Zugriff auf die Finanzdaten wurde verweigert. Bitte anmelden und die aktuellen Supabase-RLS-Policies aus supabase/schema.sql ausführen.";
+  }
+  return `Finanzdaten konnten nicht geladen werden: ${error.message}`;
 }
 
 async function refreshTransactions() {
   if (loadingTransactions) return;
   loadingTransactions = true;
   retryTransactions.hidden = true;
+  financeContent.setAttribute("aria-busy", "true");
   setFinanceStatus("Finanzdaten werden geladen …");
   try {
     await loadTransactions();
     setFinanceStatus(transactions.length ? "" : "Noch keine Buchungen vorhanden.");
   } catch (error) {
-    const message = error.code === "42P01"
-      ? "Die Finanzdatenbank ist noch nicht eingerichtet. Bitte supabase/schema.sql im Supabase SQL Editor ausführen."
-      : `Finanzdaten konnten nicht geladen werden: ${error.message}`;
-    setFinanceStatus(message, "status-error");
+    setFinanceStatus(getFinanceErrorMessage(error), "status-error");
     retryTransactions.hidden = false;
   } finally {
     loadingTransactions = false;
+    financeContent.setAttribute("aria-busy", "false");
   }
 }
 
@@ -182,7 +196,10 @@ function renderAnalytics(analytics) {
     const balance = document.createElement("small");
     balance.textContent = money(Number(item.income) - Number(item.expenses));
     balance.title = "Monatssaldo";
-    row.append(label, bars, balance);
+    const values = document.createElement("div");
+    values.className = "month-values";
+    values.innerHTML = `<span class="income-value">Einnahmen ${escapeHtml(money(item.income))}</span><span class="expense-value">Ausgaben ${escapeHtml(money(item.expenses))}</span>`;
+    row.append(label, bars, values, balance);
     return row;
   }));
 
@@ -205,6 +222,69 @@ function renderAnalytics(analytics) {
   }));
 }
 
+const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
+}[character]));
+
+async function exportTransactionsAsPdf() {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    setFinanceStatus("Der PDF-Export wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben.", "status-error");
+    return;
+  }
+  exportTransactions.disabled = true;
+  exportTransactions.textContent = "Export wird erstellt …";
+  try {
+    const year = yearFilter.value || String(new Date().getFullYear());
+    let query = supabaseClient.from("transactions")
+      .select("type, account, description, amount, transaction_date, category")
+      .gte("transaction_date", `${year}-01-01`)
+      .lt("transaction_date", `${Number(year) + 1}-01-01`)
+      .is("deleted_at", null)
+      .order("transaction_date", { ascending: false });
+    if (accountFilter.value !== "ALL") query = query.eq("account", accountFilter.value);
+    const { data, error } = await query;
+    if (error) throw error;
+    const rows = data || [];
+    const income = rows.filter(item => item.type === "INCOME").reduce((sum, item) => sum + Number(item.amount), 0);
+    const expenses = rows.filter(item => item.type === "EXPENSE").reduce((sum, item) => sum + Number(item.amount), 0);
+    const filterLabel = accountFilter.value === "ALL" ? "Alle Konten" : accountFilter.value === "BANK" ? "Bankkonto" : "PayPal-Konto";
+    const tableRows = rows.map(item => `<tr>
+      <td>${escapeHtml(formatDate(item.transaction_date))}</td>
+      <td>${escapeHtml(item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto")}</td>
+      <td>${escapeHtml(item.description)}</td>
+      <td>${escapeHtml(item.type === "INCOME" ? "Einnahme" : "Ausgabe")}</td>
+      <td class="amount ${item.type === "INCOME" ? "income" : "expense"}">${item.type === "INCOME" ? "+" : "-"} ${escapeHtml(money(item.amount))}</td>
+      <td>${escapeHtml(item.category)}</td>
+    </tr>`).join("");
+    printWindow.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>UHC Prinzen – Buchungen ${escapeHtml(year)}</title>
+      <style>
+        @page { size: A4 landscape; margin: 14mm; }
+        body { color: #172a3a; font: 12px Arial, sans-serif; margin: 0; }
+        header { align-items: center; border-bottom: 2px solid #102d49; display: flex; justify-content: space-between; margin-bottom: 18px; padding-bottom: 10px; }
+        h1 { color: #102d49; font-size: 22px; margin: 0 0 4px; } h2 { color: #102d49; font-size: 15px; margin: 20px 0 8px; }
+        .meta { color: #5e7480; } .summary { display: flex; gap: 28px; margin: 10px 0 18px; } .summary strong { display: block; font-size: 15px; margin-top: 3px; }
+        table { border-collapse: collapse; width: 100%; } th, td { border-bottom: 1px solid #d7e2e6; padding: 7px 5px; text-align: left; } th { background: #eef3f5; color: #5e7480; font-size: 10px; text-transform: uppercase; } .amount { text-align: right; } .income { color: #137455; } .expense { color: #b1423e; }
+        .empty { color: #5e7480; padding: 20px 0; } footer { color: #5e7480; margin-top: 18px; }
+        .print-button { background: #176b87; border: 0; color: white; cursor: pointer; padding: 8px 12px; } @media print { .print-button { display: none; } }
+      </style></head><body>
+      <header><div><h1>UHC Prinzen – Buchungen</h1><div class="meta">Jahr ${escapeHtml(year)} · ${escapeHtml(filterLabel)}</div></div><button class="print-button" onclick="window.print()">Als PDF speichern / drucken</button></header>
+      <div class="summary"><div>Einnahmen<strong class="income">${escapeHtml(money(income))}</strong></div><div>Ausgaben<strong class="expense">${escapeHtml(money(expenses))}</strong></div><div>Saldo<strong>${escapeHtml(money(income - expenses))}</strong></div></div>
+      <h2>Alle Buchungen (${rows.length})</h2>
+      ${rows.length ? `<table><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="amount">Betrag</th><th>Kategorie</th></tr></thead><tbody>${tableRows}</tbody></table>` : '<p class="empty">Keine Buchungen für den gewählten Zeitraum.</p>'}
+      <footer>Erstellt am ${escapeHtml(new Date().toLocaleString("de-DE"))}</footer>
+      </body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+  } catch (error) {
+    printWindow.close();
+    setFinanceStatus(`PDF-Export fehlgeschlagen: ${error.message}`, "status-error");
+  } finally {
+    exportTransactions.disabled = false;
+    exportTransactions.textContent = "PDF exportieren";
+  }
+}
+
 document.querySelector("#copyright-year").textContent = new Date().getFullYear();
 document.querySelector("#login-toggle").addEventListener("click", () => loginDialog.showModal());
 document.querySelector("#new-transaction").addEventListener("click", () => {
@@ -218,6 +298,7 @@ document.querySelector("#new-transaction").addEventListener("click", () => {
 yearFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
 accountFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
 summaryFilter.addEventListener("change", refreshTransactions);
+exportTransactions.addEventListener("click", exportTransactionsAsPdf);
 retryTransactions.addEventListener("click", refreshTransactions);
 previousPage.addEventListener("click", () => {
   if (currentPage === 0) return;
