@@ -56,6 +56,14 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-09-24:
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+- `M – supabase/schema.sql`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-24:
 - `A – .githooks/README.md`
 - `A – .githooks/pre-commit`
 - `M – README.md`

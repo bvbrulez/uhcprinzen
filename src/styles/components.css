@@ -11,6 +11,8 @@
 .button-secondary { background: transparent; border-color: var(--line); color: var(--navy); }
 .button-secondary:hover, .button-secondary:focus-visible { background: #eef6f8; }
 .button-edit { font-size: .8rem; padding: .35rem .55rem; }
+.button-danger { background: #b1423e; border-color: #b1423e; }
+.button-danger:hover, .button-danger:focus-visible { background: #8f302d; }
 .hero { align-items: center; background: linear-gradient(90deg, rgb(16 45 73 / 78%), rgb(16 45 73 / 20%)), url("../assets/hg-bild.jpg") center / cover; border-radius: 1rem; color: #fff; display: flex; min-height: min(36rem, 70vh); overflow: hidden; }
 .hero-overlay { max-width: 42rem; padding: clamp(2rem, 7vw, 5rem); }
 .hero-overlay img { height: 5rem; margin-bottom: 1rem; object-fit: contain; width: auto; }
@@ -29,6 +31,7 @@
 .account-summary span { color: var(--muted); font-weight: 700; }
 .account-summary strong { color: var(--navy); }
 .finance-toolbar { margin-bottom: 1rem; }
+.finance-explanation { color: var(--muted); font-size: .9rem; margin: -0.5rem 0 1rem; }
 .filter-controls { display: flex; flex-wrap: wrap; gap: 1rem; }
 .finance-toolbar label, .dialog-form label { display: grid; font-weight: 650; gap: .35rem; }
 input, select { border: 1px solid #a7bbc4; border-radius: .4rem; min-height: 2.5rem; padding: .45rem .6rem; }
@@ -45,6 +48,7 @@ dialog { border: 0; border-radius: .9rem; box-shadow: 0 1rem 4rem rgb(0 0 0 / 25
 dialog::backdrop { background: rgb(16 45 73 / 55%); }
 .dialog-form { display: grid; gap: 1rem; padding: 2rem; position: relative; }
 .dialog-form h2 { margin-bottom: .2rem; }
+.dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; }
 .dialog-close { background: transparent; border: 0; color: var(--muted); font-size: 1.7rem; line-height: 1; position: absolute; right: 1rem; top: .8rem; }
 @media (max-width: 48rem) {
   .site-header { align-items: flex-start; flex-direction: column; }

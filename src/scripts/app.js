@@ -9,6 +9,9 @@ const transactionList = document.querySelector("#transaction-list");
 const yearFilter = document.querySelector("#year-filter");
 const accountFilter = document.querySelector("#account-filter");
 const retryTransactions = document.querySelector("#retry-transactions");
+const transactionForm = document.querySelector("#transaction-form");
+const transactionSubmit = document.querySelector("#transaction-submit");
+const cancelTransaction = document.querySelector("#cancel-transaction");
 let session = null;
 let transactions = [];
 let loadingTransactions = false;
@@ -100,6 +103,12 @@ function renderTransactions() {
     editButton.textContent = "Ändern";
     editButton.addEventListener("click", () => openTransactionEditor(item));
     row.children[6].append(editButton);
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "button button-danger button-edit";
+    deleteButton.type = "button";
+    deleteButton.textContent = "Löschen";
+    deleteButton.addEventListener("click", () => deleteTransaction(item));
+    row.children[6].append(deleteButton);
     return row;
   }));
   if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="7" class="muted">Keine Buchungen für dieses Jahr.</td></tr>';
@@ -109,19 +118,29 @@ document.querySelector("#copyright-year").textContent = new Date().getFullYear()
 document.querySelector("#login-toggle").addEventListener("click", () => loginDialog.showModal());
 document.querySelector("#new-transaction").addEventListener("click", () => {
   editingTransaction = null;
-  document.querySelector("#transaction-form").reset();
+  transactionForm.reset();
   document.querySelector("#transaction-dialog-title").textContent = "Neue Buchung";
+  transactionSubmit.textContent = "Speichern";
   document.querySelector("#transaction-date").value = new Date().toISOString().slice(0, 10);
   transactionDialog.showModal();
 });
 yearFilter.addEventListener("change", renderTransactions);
 accountFilter.addEventListener("change", renderTransactions);
 retryTransactions.addEventListener("click", refreshTransactions);
-document.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => button.closest("dialog").close()));
+document.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => {
+  const dialog = button.closest("dialog");
+  if (dialog === transactionDialog) {
+    editingTransaction = null;
+    transactionForm.reset();
+    transactionSubmit.textContent = "Speichern";
+  }
+  dialog.close();
+}));
 
 function openTransactionEditor(transaction) {
   editingTransaction = transaction;
   document.querySelector("#transaction-dialog-title").textContent = "Buchung ändern";
+  transactionSubmit.textContent = "Änderungen speichern";
   document.querySelector("#transaction-type").value = transaction.type;
   document.querySelector("#transaction-account").value = transaction.account;
   document.querySelector("#transaction-description").value = transaction.description;
@@ -132,10 +151,30 @@ function openTransactionEditor(transaction) {
   transactionDialog.showModal();
 }
 
+cancelTransaction.addEventListener("click", () => {
+  editingTransaction = null;
+  transactionForm.reset();
+  transactionDialog.close();
+});
+
+async function deleteTransaction(transaction) {
+  const label = `${transaction.description} (${money(transaction.amount)})`;
+  if (!window.confirm(`Buchung "${label}" wirklich löschen?`)) return;
+  setFinanceStatus("Buchung wird gelöscht …");
+  try {
+    const { error } = await supabaseClient.from("transactions").delete().eq("id", transaction.id);
+    if (error) throw error;
+    await refreshTransactions();
+    setFinanceStatus("Buchung erfolgreich gelöscht.", "status-success");
+  } catch (error) {
+    setFinanceStatus(`Löschen fehlgeschlagen: ${error.message}`, "status-error");
+  }
+}
+
 document.querySelector("#login-form").addEventListener("submit", async event => {
   event.preventDefault();
   const status = document.querySelector("#login-status");
-  const submit = event.currentTarget.querySelector('button[type="submit"]');
+  const submit = transactionSubmit;
   if (!supabaseClient) { status.textContent = "Supabase ist noch nicht konfiguriert."; return; }
   submit.disabled = true;
   submit.textContent = "Anmeldung läuft …";
@@ -175,8 +214,8 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
   submit.disabled = true;
   submit.textContent = "Speichern läuft …";
   status.textContent = "";
+  const wasEditing = Boolean(editingTransaction);
   try {
-    const wasEditing = Boolean(editingTransaction);
     const query = wasEditing
       ? supabaseClient.from("transactions").update(payload).eq("id", editingTransaction.id)
       : supabaseClient.from("transactions").insert(payload);
@@ -191,7 +230,7 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
     status.textContent = `Speichern fehlgeschlagen: ${error.message}`;
   } finally {
     submit.disabled = false;
-    submit.textContent = "Speichern";
+    submit.textContent = wasEditing ? "Änderungen speichern" : "Speichern";
   }
 });
 

@@ -47,6 +47,7 @@
             <div class="account-summary"><span>Bankkonto</span><strong id="bank-balance">0,00 €</strong></div>
             <div class="account-summary"><span>PayPal-Konto</span><strong id="paypal-balance">0,00 €</strong></div>
           </div>
+          <p class="finance-explanation">Die Summen beziehen sich immer auf beide Konten. Der Kontofilter gilt nur für die Buchungsliste.</p>
           <div class="finance-toolbar">
             <div class="filter-controls">
               <label>Jahr <select id="year-filter"></select></label>
@@ -91,7 +92,11 @@
         <label>Betrag in Euro <input id="transaction-amount" type="number" min="0.01" step="0.01" required /></label>
         <label>Datum <input id="transaction-date" type="date" required /></label>
         <label>Kategorie <input id="transaction-category" required maxlength="60" /></label>
-        <button class="button" type="submit">Speichern</button><p id="transaction-status" class="status" role="status" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button id="cancel-transaction" class="button button-secondary" type="button">Abbrechen</button>
+          <button id="transaction-submit" class="button" type="submit">Speichern</button>
+        </div>
+        <p id="transaction-status" class="status" role="status" aria-live="polite"></p>
       </form>
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

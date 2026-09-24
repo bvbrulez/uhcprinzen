@@ -39,3 +39,9 @@ create policy "Members can update transactions"
   to authenticated
   using (true)
   with check (true);
+
+drop policy if exists "Members can delete transactions" on public.transactions;
+create policy "Members can delete transactions"
+  on public.transactions for delete
+  to authenticated
+  using (true);
