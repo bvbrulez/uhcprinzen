@@ -22,7 +22,12 @@ function setAuthenticated(nextSession) {
   financeContent.hidden = !authenticated;
   financeHint.hidden = authenticated;
   authState.textContent = authenticated ? `Angemeldet als ${session.user.email}` : "Nur für angemeldete Mitglieder";
-  if (authenticated) loadTransactions().catch(error => { document.querySelector("#finance-status").textContent = `Finanzdaten konnten nicht geladen werden: ${error.message}`; });
+  if (authenticated) loadTransactions().catch(error => {
+    const message = error.code === "42P01"
+      ? "Die Finanzdatenbank ist noch nicht eingerichtet. Bitte supabase/schema.sql im Supabase SQL Editor ausführen."
+      : `Finanzdaten konnten nicht geladen werden: ${error.message}`;
+    document.querySelector("#finance-status").textContent = message;
+  });
 }
 
 async function loadTransactions() {
