@@ -13,11 +13,6 @@
 .button-edit { font-size: .8rem; padding: .35rem .55rem; }
 .button-danger { background: #b1423e; border-color: #b1423e; }
 .button-danger:hover, .button-danger:focus-visible { background: #8f302d; }
-.hero { align-items: center; background: linear-gradient(90deg, rgb(16 45 73 / 78%), rgb(16 45 73 / 20%)), url("../assets/hg-bild.jpg") center / cover; border-radius: 1rem; color: #fff; display: flex; min-height: min(18rem, 35vh); overflow: hidden; }
-.hero-overlay { max-width: 42rem; padding: clamp(2rem, 7vw, 5rem); }
-.hero-overlay img { height: 5rem; margin-bottom: 1rem; object-fit: contain; width: auto; }
-.hero h1 { color: #fff; margin-bottom: .8rem; }
-.hero p:last-child { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
 .section-heading, .finance-toolbar { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
 .summary-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin: 1.5rem 0; }
 .summary-card { border: 1px solid; border-radius: .65rem; display: grid; gap: .35rem; padding: 1rem; }

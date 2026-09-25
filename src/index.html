@@ -22,15 +22,6 @@
     </header>
 
     <main>
-      <section id="home" class="hero">
-        <div class="hero-overlay">
-          <img src="assets/uhc-logo.png" alt="UHC Prinzen Logo" />
-          <p class="eyebrow">Uhlenhorster Hockey Club</p>
-          <h1>Wesselbleker Prinzen</h1>
-          <p>Freizeit-Hockey mit Leidenschaft, Teamgeist und Tradition.</p>
-        </div>
-      </section>
-
       <section id="finanzen" class="card finance-section" aria-labelledby="finance-heading">
         <div class="section-heading">
           <div><p class="eyebrow">Mannschaftskasse</p><h2 id="finance-heading">Finanzübersicht</h2></div>
@@ -47,18 +38,6 @@
             <div class="account-summary"><span>PayPal-Konto</span><strong id="paypal-balance">0,00 €</strong></div>
           </div>
           <p class="finance-explanation">Ohne aktivierten Summenfilter beziehen sich die Summen auf beide Konten. Mit Summenfilter werden nur die Daten des ausgewählten Kontos ausgewertet.</p>
-          <div class="analytics-grid">
-            <section class="analytics-card" aria-labelledby="monthly-heading">
-              <h3 id="monthly-heading">Monatsübersicht</h3>
-              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span><span>Saldo wird rechts angezeigt</span></div>
-              <div id="monthly-summary" class="monthly-summary"></div>
-            </section>
-            <section class="analytics-card" aria-labelledby="category-heading">
-              <h3 id="category-heading">Ausgaben nach Kategorie</h3>
-              <p class="analytics-caption">Die Balken zeigen den Anteil an der stärksten Kategorie.</p>
-              <div id="category-summary" class="category-summary"></div>
-            </section>
-          </div>
           <div class="finance-toolbar">
             <div class="filter-controls">
               <label>Jahr <select id="year-filter"></select></label>
@@ -70,6 +49,14 @@
                 </select>
               </label>
               <label class="checkbox-label"><input id="summary-filter" type="checkbox"> Summen nach Konto filtern</label>
+              <label>Suche <input id="transaction-search" type="search" placeholder="Beschreibung oder Kategorie"></label>
+              <label>Art
+                <select id="type-filter">
+                  <option value="ALL">Alle Buchungen</option>
+                  <option value="INCOME">Nur Einnahmen</option>
+                  <option value="EXPENSE">Nur Ausgaben</option>
+                </select>
+              </label>
             </div>
             <div class="toolbar-actions">
               <button id="export-transactions" class="button button-secondary" type="button">PDF exportieren</button>
@@ -86,8 +73,20 @@
           </div>
           <p id="finance-status" class="status" role="status" aria-live="polite"></p>
           <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
+          <div class="analytics-grid">
+            <section class="analytics-card" aria-labelledby="monthly-heading">
+              <h3 id="monthly-heading">Monatsübersicht</h3>
+              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span><span>Saldo wird rechts angezeigt</span></div>
+              <div id="monthly-summary" class="monthly-summary"></div>
+            </section>
+            <section class="analytics-card" aria-labelledby="category-heading">
+              <h3 id="category-heading">Ausgaben nach Kategorie</h3>
+              <p class="analytics-caption">Die Balken zeigen den Anteil an der stärksten Kategorie.</p>
+              <div id="category-summary" class="category-summary"></div>
+            </section>
+          </div>
         </div>
-        <p id="finance-login-hint" class="muted">Melde dich an, um die Mannschaftskasse zu sehen.</p>
+        <p id="finance-login-hint" class="muted">Die Finanzdaten sind aus Datenschutzgründen nur für angemeldete Mitglieder sichtbar. Melde dich an, um die Mannschaftskasse zu sehen.</p>
       </section>
     </main>
 

@@ -117,3 +117,13 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - `supabase/schema.sql` auf ein Delta-Migrationsskript für bestehende
   Installationen umgestellt.
 - README um die getrennten Einrichtungswege ergänzt.
+
+## 2026-09-25
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-25:
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+

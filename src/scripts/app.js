@@ -9,6 +9,8 @@ const transactionList = document.querySelector("#transaction-list");
 const yearFilter = document.querySelector("#year-filter");
 const accountFilter = document.querySelector("#account-filter");
 const summaryFilter = document.querySelector("#summary-filter");
+const transactionSearch = document.querySelector("#transaction-search");
+const typeFilter = document.querySelector("#type-filter");
 const retryTransactions = document.querySelector("#retry-transactions");
 const transactionForm = document.querySelector("#transaction-form");
 const transactionSubmit = document.querySelector("#transaction-submit");
@@ -67,6 +69,11 @@ async function loadTransactions() {
     .order("transaction_date", { ascending: false })
     .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
   if (accountFilter.value !== "ALL") query = query.eq("account", accountFilter.value);
+  if (typeFilter.value !== "ALL") query = query.eq("type", typeFilter.value);
+  if (transactionSearch.value.trim()) {
+    const search = transactionSearch.value.trim().replace(/[%_(),]/g, " ");
+    query = query.or(`description.ilike.%${search}%,category.ilike.%${search}%`);
+  }
   const analyticsAccount = summaryFilter.checked && accountFilter.value !== "ALL" ? accountFilter.value : null;
   const analyticsPromise = supabaseClient.rpc("get_transaction_analytics", {
     p_year: Number(year),
@@ -248,6 +255,7 @@ async function exportTransactionsAsPdf() {
     const rows = data || [];
     const income = rows.filter(item => item.type === "INCOME").reduce((sum, item) => sum + Number(item.amount), 0);
     const expenses = rows.filter(item => item.type === "EXPENSE").reduce((sum, item) => sum + Number(item.amount), 0);
+    const balanceFor = account => rows.filter(item => item.account === account).reduce((sum, item) => sum + (item.type === "INCOME" ? Number(item.amount) : -Number(item.amount)), 0);
     const filterLabel = accountFilter.value === "ALL" ? "Alle Konten" : accountFilter.value === "BANK" ? "Bankkonto" : "PayPal-Konto";
     const tableRows = rows.map(item => `<tr>
       <td>${escapeHtml(formatDate(item.transaction_date))}</td>
@@ -269,9 +277,9 @@ async function exportTransactionsAsPdf() {
         .print-button { background: #176b87; border: 0; color: white; cursor: pointer; padding: 8px 12px; } @media print { .print-button { display: none; } }
       </style></head><body>
       <header><div><h1>UHC Prinzen – Buchungen</h1><div class="meta">Jahr ${escapeHtml(year)} · ${escapeHtml(filterLabel)}</div></div><button class="print-button" onclick="window.print()">Als PDF speichern / drucken</button></header>
-      <div class="summary"><div>Einnahmen<strong class="income">${escapeHtml(money(income))}</strong></div><div>Ausgaben<strong class="expense">${escapeHtml(money(expenses))}</strong></div><div>Saldo<strong>${escapeHtml(money(income - expenses))}</strong></div></div>
+      <div class="summary"><div>Einnahmen<strong class="income">${escapeHtml(money(income))}</strong></div><div>Ausgaben<strong class="expense">${escapeHtml(money(expenses))}</strong></div><div>Saldo<strong>${escapeHtml(money(income - expenses))}</strong></div><div>Bankkonto<strong>${escapeHtml(money(balanceFor("BANK")))}</strong></div><div>PayPal-Konto<strong>${escapeHtml(money(balanceFor("PAYPAL")))}</strong></div></div>
       <h2>Alle Buchungen (${rows.length})</h2>
-      ${rows.length ? `<table><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="amount">Betrag</th><th>Kategorie</th></tr></thead><tbody>${tableRows}</tbody></table>` : '<p class="empty">Keine Buchungen für den gewählten Zeitraum.</p>'}
+      ${rows.length ? `<table><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="amount">Betrag</th><th>Kategorie</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr><th colspan="4">Saldo</th><th class="amount">${escapeHtml(money(income - expenses))}</th><th></th></tr></tfoot></table>` : '<p class="empty">Keine Buchungen für den gewählten Zeitraum.</p>'}
       <footer>Erstellt am ${escapeHtml(new Date().toLocaleString("de-DE"))}</footer>
       </body></html>`);
     printWindow.document.close();
@@ -298,6 +306,8 @@ document.querySelector("#new-transaction").addEventListener("click", () => {
 yearFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
 accountFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
 summaryFilter.addEventListener("change", refreshTransactions);
+typeFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
+transactionSearch.addEventListener("input", () => { currentPage = 0; refreshTransactions(); });
 exportTransactions.addEventListener("click", exportTransactionsAsPdf);
 retryTransactions.addEventListener("click", refreshTransactions);
 previousPage.addEventListener("click", () => {
