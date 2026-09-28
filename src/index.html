@@ -34,10 +34,10 @@
             <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
           </div>
           <div class="account-summary-grid">
-            <div class="account-summary"><span>Bankkonto</span><strong id="bank-balance">0,00 €</strong></div>
-            <div class="account-summary"><span>PayPal-Konto</span><strong id="paypal-balance">0,00 €</strong></div>
+            <div class="account-summary"><span>Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div>
+            <div class="account-summary"><span>PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div>
           </div>
-          <p class="finance-explanation">Ohne aktivierten Summenfilter beziehen sich die Summen auf beide Konten. Mit Summenfilter werden nur die Daten des ausgewählten Kontos ausgewertet.</p>
+          <p class="finance-explanation">Bank- und PayPal-Karten zeigen jeweils den Jahressaldo und ignorieren Konto-, Buchungsart- und Suchfilter. Gesamteinnahmen, Gesamtausgaben, Gesamtsaldo und Auswertungen folgen dem ausgewählten Jahr sowie Buchungsart und Suche; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
           <div class="finance-toolbar">
             <div class="filter-controls">
               <label>Jahr <select id="year-filter"></select></label>
@@ -59,12 +59,15 @@
               </label>
             </div>
             <div class="toolbar-actions">
+              <button id="reset-filters" class="button button-secondary" type="button">Filter zurücksetzen</button>
               <button id="export-transactions" class="button button-secondary" type="button">PDF exportieren</button>
-              <button id="new-transaction" class="button" type="button">+ Neue Buchung</button>
+              <button id="manage-categories" class="button button-secondary" type="button" hidden>Kategorien verwalten</button>
+              <button id="new-transaction" class="button" type="button" hidden>+ Neue Buchung</button>
             </div>
           </div>
+          <p id="active-filters" class="active-filters" aria-live="polite"></p>
           <div class="table-scroll">
-            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Geändert</th><th><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
+            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Geändert</th><th id="transactions-actions-header"><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
           </div>
           <div class="pagination">
             <button id="previous-page" class="button button-secondary" type="button" disabled>← Zurück</button>
@@ -72,6 +75,11 @@
             <button id="next-page" class="button button-secondary" type="button" disabled>Weiter →</button>
           </div>
           <p id="finance-status" class="status" role="status" aria-live="polite"></p>
+          <div class="setup-status" aria-label="Supabase-Einrichtungsdiagnose">
+            <p id="database-setup-status" role="status">Datenbankzugriff: wird geprüft …</p>
+            <p id="report-setup-status" role="status">Berichtsfunktionen: werden geprüft …</p>
+            <p id="write-setup-status" role="status">Schreibrechte: werden bei der ersten Änderung geprüft.</p>
+          </div>
           <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
           <div class="analytics-grid">
             <section class="analytics-card" aria-labelledby="monthly-heading">
@@ -96,21 +104,55 @@
       <form id="login-form" class="dialog-form">
         <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
         <p class="eyebrow">Mannschaftskasse</p><h2>Anmelden</h2>
+        <p class="muted">Mitglieder können die Buchungen nach Anmeldung ansehen. Anlegen, Ändern und Löschen ist Administratoren vorbehalten.</p>
         <label>E-Mail <input id="email" type="email" autocomplete="username" required /></label>
         <label>Passwort <input id="password" type="password" autocomplete="current-password" required /></label>
         <button class="button" type="submit">Anmelden</button><p id="login-status" class="status" role="status" aria-live="polite"></p>
+        <button id="request-password-reset" class="button button-secondary" type="button">Passwort vergessen?</button>
+        <p id="password-reset-request-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+    <dialog id="password-reset-dialog">
+      <form id="password-reset-form" class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Mannschaftskasse</p><h2>Neues Passwort festlegen</h2>
+        <label>Neues Passwort <input id="new-password" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <label>Passwort wiederholen <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <button class="button" type="submit">Passwort speichern</button>
+        <p id="password-reset-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+    <dialog id="category-dialog">
+      <form id="category-management-form" class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Nur Administratoren</p><h2>Kategorien verwalten</h2>
+        <label>Neue Kategorie <input id="new-category-name" maxlength="60" required /></label>
+        <button class="button" type="submit">Kategorie hinzufügen</button>
+        <p id="category-management-status" class="status" role="status" aria-live="polite"></p>
+        <ul id="category-management-list" class="category-management-list"></ul>
       </form>
     </dialog>
     <dialog id="transaction-dialog">
       <form id="transaction-form" class="dialog-form">
         <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
         <p class="eyebrow">Mannschaftskasse</p><h2 id="transaction-dialog-title">Neue Buchung</h2>
+        <p id="transaction-mode-hint" class="muted" role="status"></p>
         <label>Typ <select id="transaction-type" required><option value="INCOME">Einnahme</option><option value="EXPENSE">Ausgabe</option></select></label>
         <label>Konto <select id="transaction-account" required><option value="BANK">Bankkonto</option><option value="PAYPAL">PayPal-Konto</option></select></label>
         <label>Beschreibung <input id="transaction-description" required maxlength="120" /></label>
         <label>Betrag in Euro <input id="transaction-amount" type="number" min="0.01" step="0.01" required /></label>
         <label>Datum <input id="transaction-date" type="date" required /></label>
-        <label>Kategorie <input id="transaction-category" required maxlength="60" /></label>
+        <label>Kategorie
+          <select id="transaction-category" required>
+            <option value="Prinzenkröten">Prinzenkröten</option>
+            <option value="Turnier">Turnier</option>
+            <option value="Trainer">Trainer</option>
+            <option value="Ausrüstung">Ausrüstung</option>
+            <option value="Sixpack">Sixpack</option>
+            <option value="Platzmiete">Platzmiete</option>
+            <option value="Sonstiges">Sonstiges</option>
+          </select>
+        </label>
         <div class="dialog-actions">
           <button id="cancel-transaction" class="button button-secondary" type="button">Abbrechen</button>
           <button id="transaction-submit" class="button" type="submit">Speichern</button>

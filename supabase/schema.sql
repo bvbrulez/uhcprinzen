@@ -27,6 +27,64 @@ create index if not exists transactions_active_date_idx
   on public.transactions (transaction_date desc)
   where deleted_at is null;
 
+create table if not exists public.transaction_categories (
+  name text primary key check (char_length(name) between 1 and 60 and name = btrim(name)),
+  created_at timestamptz not null default now()
+);
+
+insert into public.transaction_categories (name)
+select distinct category from public.transactions
+on conflict (name) do nothing;
+
+insert into public.transaction_categories (name)
+values ('Prinzenkröten'), ('Turnier'), ('Trainer'), ('Ausrüstung'), ('Sixpack'), ('Platzmiete'), ('Sonstiges')
+on conflict (name) do nothing;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'transactions_category_fkey'
+      and conrelid = 'public.transactions'::regclass
+  ) then
+    alter table public.transactions
+      add constraint transactions_category_fkey
+      foreign key (category) references public.transaction_categories(name);
+  end if;
+end;
+$$;
+
+alter table public.transaction_categories enable row level security;
+grant select, insert, update, delete on public.transaction_categories to authenticated;
+
+create or replace function public.is_finance_admin()
+returns boolean
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select coalesce(
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+    or lower(auth.jwt() ->> 'email') = 'bvbrulez@gmail.com',
+    false
+  );
+$$;
+grant execute on function public.is_finance_admin() to authenticated;
+
+drop policy if exists "Members can read transaction categories" on public.transaction_categories;
+create policy "Members can read transaction categories"
+  on public.transaction_categories for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Admins can manage transaction categories" on public.transaction_categories;
+create policy "Admins can manage transaction categories"
+  on public.transaction_categories for all
+  to authenticated
+  using (public.is_finance_admin())
+  with check (public.is_finance_admin());
+
 create or replace function public.get_transaction_years()
 returns table(year text)
 language sql
@@ -39,19 +97,35 @@ as $$
   order by 1 desc;
 $$;
 
-create or replace function public.get_transaction_analytics(p_year integer, p_account text default null)
+drop function if exists public.get_transaction_analytics(integer, text);
+
+create or replace function public.get_transaction_analytics(
+  p_year integer,
+  p_account text default null,
+  p_type text default null,
+  p_search text default null
+)
 returns jsonb
 language sql
 stable
 security invoker
 as $$
-  with filtered as (
-    select type, account, amount, extract(month from transaction_date)::integer - 1 as month_index, category
+  with year_rows as (
+    select type, account, description, amount, extract(month from transaction_date)::integer - 1 as month_index, category
     from public.transactions
     where deleted_at is null
       and transaction_date >= make_date(p_year, 1, 1)
       and transaction_date < make_date(p_year + 1, 1, 1)
-      and (p_account is null or account = p_account)
+  ),
+  filtered as (
+    select * from year_rows
+    where (p_account is null or account = p_account)
+      and (p_type is null or type = p_type)
+      and (
+        p_search is null
+        or position(lower(p_search) in lower(description)) > 0
+        or position(lower(p_search) in lower(category)) > 0
+      )
   ),
   totals as (
     select
@@ -62,7 +136,7 @@ as $$
   accounts as (
     select account,
       coalesce(sum(case when type = 'INCOME' then amount else -amount end), 0) as balance
-    from filtered
+    from year_rows
     group by account
   ),
   months as (
@@ -92,26 +166,42 @@ $$;
 
 alter table public.transactions enable row level security;
 
-drop policy if exists "Members can read transactions" on public.transactions;
+do $$
+declare
+  policy_name text;
+begin
+  for policy_name in
+    select policyname from pg_policies
+    where schemaname = 'public' and tablename = 'transactions'
+  loop
+    execute format('drop policy %I on public.transactions', policy_name);
+  end loop;
+end;
+$$;
+
 create policy "Members can read transactions"
   on public.transactions for select
   to authenticated
   using (deleted_at is null);
 
-drop policy if exists "Members can add transactions" on public.transactions;
-create policy "Members can add transactions"
+create policy "Admins can add transactions"
   on public.transactions for insert
   to authenticated
-  with check (deleted_at is null);
+  with check (
+    deleted_at is null
+    and public.is_finance_admin()
+  );
 
-drop policy if exists "Members can update transactions" on public.transactions;
-create policy "Members can update transactions"
+create policy "Admins can update transactions"
   on public.transactions for update
   to authenticated
-  using (deleted_at is null)
-  with check (true);
-
-drop policy if exists "Members can delete transactions" on public.transactions;
+  using (
+    deleted_at is null
+    and public.is_finance_admin()
+  )
+  with check (
+    public.is_finance_admin()
+  );
 
 create or replace function public.set_transaction_audit_fields()
 returns trigger
@@ -132,3 +222,5 @@ drop trigger if exists transactions_audit on public.transactions;
 create trigger transactions_audit
 before update on public.transactions
 for each row execute function public.set_transaction_audit_fields();
+
+notify pgrst, 'reload schema';

@@ -10,3 +10,10 @@ create table public.transactions (
   category text not null check (char_length(category) between 1 and 60),
   created_at timestamptz not null default now()
 );
+
+alter table public.transactions enable row level security;
+
+create policy "Members can read transactions"
+  on public.transactions for select
+  to authenticated
+  using (true);

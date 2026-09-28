@@ -127,3 +127,17 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - `M – src/scripts/app.js`
 - `M – src/styles/components.css`
 
+
+## 2026-09-28
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-28:
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/base.css`
+- `M – src/styles/components.css`
+- `M – supabase/base-schema.sql`
+- `M – supabase/schema.sql`
+
