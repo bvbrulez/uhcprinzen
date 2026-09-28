@@ -130,14 +130,15 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 ## 2026-09-28
 
-### Änderungen aus diesem Commit
+### `98b8c7d` – feat: secure and refresh finance app
 
-- Aktualisiert am 2026-09-28:
-- `M – README.md`
-- `M – src/index.html`
-- `M – src/scripts/app.js`
-- `M – src/styles/base.css`
-- `M – src/styles/components.css`
-- `M – supabase/base-schema.sql`
-- `M – supabase/schema.sql`
-
+- Buchungen und Kategorien auf Administratoren beschränkt; `bvbrulez@gmail.com`
+  als Admin zugelassen und die Rechte in Supabase-RLS abgesichert.
+- Lesenden Mitglieder-Login `Prinzenkroeten` sowie Passwort-Wiederherstellung
+  ergänzt.
+- Kategorien zentral in Supabase verwaltet, mit Admin-Funktionen zum Hinzufügen
+  und Entfernen; bestehende Kategorien übernommen und geschützt.
+- Monats- und Kategorieauswertungen mit Suche, Buchungsart und optionalem
+  Kontofilter synchronisiert; Kontosalden unabhängig davon ausgewiesen.
+- PDF-Export paginiert und auf 5.000 Buchungen begrenzt.
+- Admin-Anleitungen aktualisiert und das responsive Vereinsdesign aufgefrischt.
