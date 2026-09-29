@@ -40,7 +40,7 @@
 .legend-expense { background: repeating-linear-gradient(135deg, #8f302d 0 2px, #e5aaa4 2px 4px); }
 .monthly-summary, .category-summary { display: grid; gap: .35rem; }
 .month-row, .category-row { align-items: center; display: grid; gap: .6rem; min-height: 1.45rem; }
-.month-row { grid-template-columns: 2.2rem 1fr minmax(11rem, auto) auto; }
+.month-row { grid-template-columns: 4rem 1fr minmax(11rem, auto) auto; }
 .category-row { grid-template-columns: 2.2rem 1fr auto; }
 .month-row span, .category-row span { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .month-bars, .category-bar { background: #edf2f4; border-radius: .2rem; display: flex; height: .7rem; overflow: hidden; }
@@ -83,7 +83,7 @@ dialog::backdrop { background: rgb(16 45 73 / 55%); }
   .summary-grid { grid-template-columns: 1fr; }
   .account-summary-grid { grid-template-columns: 1fr; }
   .analytics-grid { grid-template-columns: 1fr; }
-  .month-row { align-items: start; gap: .35rem .5rem; grid-template-columns: 2.2rem 1fr auto; }
+  .month-row { align-items: start; gap: .35rem .5rem; grid-template-columns: 4rem 1fr auto; }
   .month-bars { margin-top: .35rem; }
   .month-values { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; gap: .25rem .75rem; }
   .month-row small { align-self: start; }
@@ -235,6 +235,13 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .audit-diff tbody th { color: var(--navy); text-transform: none; }
 .recurring-due { background: #fff4e9; border-radius: .55rem; padding: .45rem; }
 .recurring-due > span:first-child { color: #8f302d; font-weight: 750; }
+.date-presets { align-items: end; display: flex; flex-wrap: wrap; gap: .35rem; }
+.date-presets .button { min-height: 2.35rem; white-space: nowrap; }
+.filter-controls input[aria-invalid="true"] { border-color: #b1423e; box-shadow: 0 0 0 3px rgb(177 66 62 / 12%); }
+.button-reconcile { background: #eaf7f0; border-color: #b4ddc7; box-shadow: none; color: #176b48; }
+.button-reconcile:hover:not(:disabled) { background: #176b48; border-color: #176b48; color: #fff; }
+.reconciliation-open { color: #8a5920; font-weight: 700; }
+.reconciliation-done { color: #176b48; font-weight: 700; }
 #show-deleted-label[hidden] { display: none !important; }
 
 .button {
@@ -329,6 +336,8 @@ button[hidden] { display: none !important; }
   .filter-controls input, .filter-controls select { max-width: 100%; min-width: 0; width: 100%; }
   .filter-controls input[type="search"] { min-width: 0; }
   .checkbox-label { grid-column: 1 / -1; }
+  .date-presets { align-items: stretch; grid-column: 1 / -1; }
+  .date-presets .button { flex: 1; padding-inline: .4rem; }
   .toolbar-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .toolbar-actions .button { font-size: .84rem; min-width: 0; padding-inline: .55rem; width: 100%; }
   .toolbar-actions #new-transaction { grid-column: 1 / -1; }

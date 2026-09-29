@@ -36,13 +36,20 @@
             <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
           </div>
           <div class="account-summary-grid">
-            <div class="account-summary"><span>Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div>
-            <div class="account-summary"><span>PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div>
+            <div class="account-summary"><span id="bank-balance-label">Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div>
+            <div class="account-summary"><span id="paypal-balance-label">PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div>
           </div>
-          <p class="finance-explanation">Bank- und PayPal-Karten zeigen jeweils den Jahressaldo und ignorieren Konto-, Buchungsart- und Suchfilter. Gesamteinnahmen, Gesamtausgaben, Gesamtsaldo und Auswertungen folgen dem ausgewählten Jahr sowie Buchungsart und Suche; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
+          <p class="finance-explanation">Bank- und PayPal-Karten berücksichtigen Zeitraum und zeigen unabhängig von Konto-, Buchungsart-, Abgleich- und Suchfilter den jeweiligen Saldo. Gesamteinnahmen, Gesamtausgaben, Gesamtsaldo und Auswertungen folgen dem Zeitraum sowie Buchungsart, Abgleichstatus und Suche; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
           <div class="finance-toolbar">
             <div class="filter-controls">
               <label>Jahr <select id="year-filter"></select></label>
+              <label>Von <input id="date-from-filter" type="date" /></label>
+              <label>Bis <input id="date-to-filter" type="date" /></label>
+              <div class="date-presets" role="group" aria-label="Schnellfilter für den Zeitraum">
+                <button class="button button-secondary button-edit" type="button" data-date-preset="30">Letzte 30 Tage</button>
+                <button class="button button-secondary button-edit" type="button" data-date-preset="month">Dieser Monat</button>
+                <button class="button button-secondary button-edit" type="button" data-date-preset="year">Dieses Jahr</button>
+              </div>
               <label>Konto
                 <select id="account-filter">
                   <option value="ALL">Alle Konten</option>
@@ -59,6 +66,13 @@
                   <option value="EXPENSE">Nur Ausgaben</option>
                 </select>
               </label>
+              <label>Abgleich
+                <select id="reconciliation-filter">
+                  <option value="ALL">Alle Buchungen</option>
+                  <option value="OPEN">Noch nicht abgeglichen</option>
+                  <option value="RECONCILED">Abgeglichen</option>
+                </select>
+              </label>
             </div>
             <div class="toolbar-actions">
               <button id="reset-filters" class="button button-secondary" type="button">Filter zurücksetzen</button>
@@ -73,7 +87,7 @@
           </div>
           <p id="active-filters" class="active-filters" aria-live="polite"></p>
           <div class="table-scroll">
-            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Geändert</th><th id="transactions-actions-header"><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
+            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Abgleich</th><th>Geändert</th><th id="transactions-actions-header"><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
           </div>
           <div class="pagination">
             <button id="previous-page" class="button button-secondary" type="button" disabled>← Zurück</button>

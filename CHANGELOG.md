@@ -3,6 +3,27 @@
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 ## 2026-09-29
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-29:
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+- `M – supabase/schema.sql`
+
+
+### Freie Zeiträume und Buchungsabgleich ergänzt
+
+- Eigene Start- und Enddaten sowie Schnellfilter für 30 Tage, aktuellen Monat
+  und laufendes Jahr ergänzt; Buchungslisten, Kennzahlen und Exporte wenden
+  denselben Zeitraum an.
+- Administratoren können Buchungen als abgeglichen markieren, den Status
+  filtern und Abgleichszeitpunkt sowie Benutzer in Liste, Auswertungen und
+  Exporten nachvollziehen.
+- Datenbankschema und Audit-Logging um Abgleichsmetadaten erweitert.
+- Eine verständlichere Meldung für JWT-Fehler wegen einer in der Zukunft
+  liegenden Ausstellungszeit ergänzt.
 
 ### `b0b029e` – feat: improve finance workflows and navigation
 

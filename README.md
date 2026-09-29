@@ -55,9 +55,14 @@ Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
 
 ## Buchungsverwaltung
 
-Monats- und Kategorieauswertungen übernehmen Jahr, Buchungsart und Suche sowie
-optional den Konto-Summenfilter. Der PDF-Export lädt Buchungen in Seiten zu je
-500 Einträgen und zeigt währenddessen den Fortschritt an. Kategorien werden
+Monats- und Kategorieauswertungen übernehmen Jahr oder frei gewählten Zeitraum,
+Buchungsart, Abgleichstatus und Suche sowie optional den Konto-Summenfilter. Schnellfilter für
+die letzten 30 Tage, den aktuellen Monat und das laufende Jahr helfen bei der
+Auswahl. Wenn ein eigenes Startdatum gesetzt wird und das Enddatum leer bleibt,
+reicht der Zeitraum bis heute; ohne Startdatum beginnt er am Jahresanfang.
+PDF- und CSV-Export verwenden dieselben Datums- und Buchungsfilter. Der
+PDF-Export lädt Buchungen in Seiten zu je 500 Einträgen und zeigt währenddessen
+den Fortschritt an. Kategorien werden
 zentral in `transaction_categories` verwaltet. Administratoren können sie in
 der Oberfläche ergänzen oder entfernen; Kategorien, die noch in Buchungen
 verwendet werden, schützt ein Fremdschlüssel vor dem Löschen. Bestehende
@@ -100,6 +105,12 @@ Buchungswerte direkt im Vorher-nachher-Vergleich. Der Auditverlauf beginnt mit
 dem Zeitpunkt, an dem das aktuelle Delta-Skript ausgeführt wird. Monats- und
 Kategorie-Diagramme bieten zusätzlich aufklappbare Datentabellen, die per
 Tastatur und Screenreader nutzbar sind.
+
+Administratoren können Buchungen nach Abgleichstatus filtern und nach Prüfung
+mit Kontoauszügen als abgeglichen markieren. Zeitpunkt und Benutzer werden
+gespeichert und sind in Listen sowie Exporten sichtbar; der Verlauf protokolliert
+auch das Abgleichen und Aufheben eines Abgleichs. Neue Buchungen und CSV-Importe
+beginnen standardmäßig als offen.
 
 ## Admin-Zugänge verwalten
 

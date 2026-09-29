@@ -35,6 +35,15 @@ alter table public.transactions
 alter table public.transactions
   add column if not exists deleted_by_email text;
 
+alter table public.transactions
+  add column if not exists reconciled_at timestamptz;
+
+alter table public.transactions
+  add column if not exists reconciled_by uuid references auth.users(id);
+
+alter table public.transactions
+  add column if not exists reconciled_by_email text;
+
 create table if not exists public.transaction_categories (
   name text primary key check (char_length(name) between 1 and 60 and name = btrim(name)),
   created_at timestamptz not null default now()
@@ -189,6 +198,14 @@ begin
     audit_action := 'updated';
   end if;
 
+  if new.reconciled_at is not null and old.reconciled_at is null then
+    new.reconciled_by := auth.uid();
+    new.reconciled_by_email := actor_email;
+  elsif new.reconciled_at is null then
+    new.reconciled_by := null;
+    new.reconciled_by_email := null;
+  end if;
+
   insert into public.transaction_audit_log
     (transaction_id, action, actor_id, actor_email, old_data, new_data)
   values
@@ -288,6 +305,10 @@ create index if not exists transactions_active_date_idx
   on public.transactions (transaction_date desc)
   where deleted_at is null;
 
+create index if not exists transactions_reconciled_date_idx
+  on public.transactions (reconciled_at, transaction_date desc)
+  where deleted_at is null;
+
 alter table public.transaction_categories enable row level security;
 grant select, insert, update, delete on public.transaction_categories to authenticated;
 
@@ -316,12 +337,17 @@ as $$
 $$;
 
 drop function if exists public.get_transaction_analytics(integer, text);
+drop function if exists public.get_transaction_analytics(integer, text, text, text);
+drop function if exists public.get_transaction_analytics(integer, text, text, text, date, date);
 
 create or replace function public.get_transaction_analytics(
   p_year integer,
   p_account text default null,
   p_type text default null,
-  p_search text default null
+  p_search text default null,
+  p_start_date date default null,
+  p_end_date date default null,
+  p_reconciled boolean default null
 )
 returns jsonb
 language sql
@@ -329,11 +355,12 @@ stable
 security invoker
 as $$
   with year_rows as (
-    select type, account, description, amount, extract(month from transaction_date)::integer - 1 as month_index, category
+    select type, account, description, amount, transaction_date, reconciled_at,
+      extract(month from transaction_date)::integer - 1 as month_index, category
     from public.transactions
     where deleted_at is null
-      and transaction_date >= make_date(p_year, 1, 1)
-      and transaction_date < make_date(p_year + 1, 1, 1)
+      and transaction_date >= coalesce(p_start_date, make_date(p_year, 1, 1))
+      and transaction_date <= coalesce(p_end_date, make_date(p_year, 12, 31))
   ),
   filtered as (
     select * from year_rows
@@ -344,6 +371,7 @@ as $$
         or position(lower(p_search) in lower(description)) > 0
         or position(lower(p_search) in lower(category)) > 0
       )
+      and (p_reconciled is null or (reconciled_at is not null) = p_reconciled)
   ),
   totals as (
     select
@@ -358,11 +386,13 @@ as $$
     group by account
   ),
   months as (
-    select month_index,
+    select date_trunc('month', transaction_date)::date as month_start,
+      month_index,
+      extract(year from transaction_date)::integer as transaction_year,
       coalesce(sum(amount) filter (where type = 'INCOME'), 0) as income,
       coalesce(sum(amount) filter (where type = 'EXPENSE'), 0) as expenses
     from filtered
-    group by month_index
+    group by month_start, month_index, transaction_year
   ),
   categories as (
     select category, coalesce(sum(amount), 0) as amount
@@ -377,7 +407,7 @@ as $$
       'expenses', (select expenses from totals)
     ),
     'accounts', coalesce((select jsonb_object_agg(account, balance) from accounts), '{}'::jsonb),
-    'months', coalesce((select jsonb_agg(jsonb_build_object('month', month_index, 'income', income, 'expenses', expenses) order by month_index) from months), '[]'::jsonb),
+    'months', coalesce((select jsonb_agg(jsonb_build_object('month', month_index, 'year', transaction_year, 'income', income, 'expenses', expenses) order by month_start) from months), '[]'::jsonb),
     'categories', coalesce((select jsonb_agg(jsonb_build_array(category, amount)) from categories), '[]'::jsonb)
   );
 $$;
@@ -432,8 +462,17 @@ as $$
 begin
   new.updated_at = now();
   new.updated_by = auth.uid();
+  new.updated_by_email = coalesce(auth.jwt() ->> 'email', 'Unbekannt');
   if new.deleted_at is not null and old.deleted_at is null then
     new.deleted_by = auth.uid();
+    new.deleted_by_email = coalesce(auth.jwt() ->> 'email', 'Unbekannt');
+  end if;
+  if new.reconciled_at is not null and old.reconciled_at is null then
+    new.reconciled_by = auth.uid();
+    new.reconciled_by_email = coalesce(auth.jwt() ->> 'email', 'Unbekannt');
+  elsif new.reconciled_at is null then
+    new.reconciled_by = null;
+    new.reconciled_by_email = null;
   end if;
   return new;
 end;
