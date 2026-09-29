@@ -385,6 +385,15 @@ as $$
     from year_rows
     group by account
   ),
+  reconciliation_by_account as (
+    select account,
+      count(*) filter (where reconciled_at is null) as open_count,
+      coalesce(sum(amount) filter (where reconciled_at is null), 0) as open_amount,
+      count(*) filter (where reconciled_at is not null) as reconciled_count,
+      coalesce(sum(amount) filter (where reconciled_at is not null), 0) as reconciled_amount
+    from year_rows
+    group by account
+  ),
   months as (
     select date_trunc('month', transaction_date)::date as month_start,
       month_index,
@@ -407,6 +416,15 @@ as $$
       'expenses', (select expenses from totals)
     ),
     'accounts', coalesce((select jsonb_object_agg(account, balance) from accounts), '{}'::jsonb),
+    'reconciliation', coalesce((
+      select jsonb_object_agg(account, jsonb_build_object(
+        'open_count', open_count,
+        'open_amount', open_amount,
+        'reconciled_count', reconciled_count,
+        'reconciled_amount', reconciled_amount
+      ))
+      from reconciliation_by_account
+    ), '{}'::jsonb),
     'months', coalesce((select jsonb_agg(jsonb_build_object('month', month_index, 'year', transaction_year, 'income', income, 'expenses', expenses) order by month_start) from months), '[]'::jsonb),
     'categories', coalesce((select jsonb_agg(jsonb_build_array(category, amount)) from categories), '[]'::jsonb)
   );

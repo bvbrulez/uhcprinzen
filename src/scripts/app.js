@@ -19,6 +19,14 @@ const typeFilter = document.querySelector("#type-filter");
 const dateFromFilter = document.querySelector("#date-from-filter");
 const dateToFilter = document.querySelector("#date-to-filter");
 const reconciliationFilter = document.querySelector("#reconciliation-filter");
+const savedFilterChips = document.querySelector("#saved-filter-chips");
+const saveFilterButton = document.querySelector("#save-filter");
+const bulkReconcileButton = document.querySelector("#bulk-reconcile");
+const selectVisibleTransactions = document.querySelector("#select-visible-transactions");
+const csvExportDialog = document.querySelector("#csv-export-dialog");
+const csvExportForm = document.querySelector("#csv-export-form");
+const csvExportStatus = document.querySelector("#csv-export-status");
+const exportAudit = document.querySelector("#export-audit");
 const retryTransactions = document.querySelector("#retry-transactions");
 const transactionForm = document.querySelector("#transaction-form");
 const transactionSubmit = document.querySelector("#transaction-submit");
@@ -74,6 +82,10 @@ let csvHeaders = [];
 let csvRecords = [];
 let csvPreparedRows = [];
 let recurringEditId = null;
+let selectedTransactionIds = new Set();
+const savedFiltersKey = "uhc-prinzen-saved-filters";
+const csvColumnsKey = "uhc-prinzen-csv-columns";
+let savedFilters = [];
 
 const money = value => `${(Number(value) || 0).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("de-DE");
@@ -119,13 +131,12 @@ function setAuthenticated(nextSession) {
   const administrator = isAdministrator();
   document.querySelector("#login-toggle").hidden = authenticated;
   document.querySelector("#logout-button").hidden = !authenticated;
-  document.querySelector("#new-transaction").hidden = !administrator;
-  document.querySelector("#manage-categories").hidden = !administrator;
-  document.querySelector("#import-transactions").hidden = !administrator;
-  document.querySelector("#manage-recurring").hidden = !administrator;
-  document.querySelector("#show-deleted-label").hidden = !administrator;
+  document.querySelectorAll("[data-admin-only]").forEach(element => {
+    element.hidden = !administrator;
+  });
   if (!administrator) showDeleted.checked = false;
-  document.querySelector("#transactions-actions-header").hidden = !administrator;
+  bulkReconcileButton.disabled = true;
+  selectedTransactionIds.clear();
   financeContent.hidden = !authenticated;
   financeHint.hidden = authenticated;
   const displayName = session?.user?.user_metadata?.display_name
@@ -150,13 +161,164 @@ function isAdministrator() {
 }
 
 function updateActiveFilters() {
-  const labels = [dateRangeLabel()];
-  if (reconciliationFilter.value !== "ALL") labels.push(reconciliationFilter.value === "OPEN" ? "Noch nicht abgeglichen" : "Abgeglichen");
-  if (accountFilter.value !== "ALL") labels.push(accountFilter.value === "BANK" ? "Bankkonto" : "PayPal-Konto");
-  if (typeFilter.value !== "ALL") labels.push(typeFilter.value === "INCOME" ? "Nur Einnahmen" : "Nur Ausgaben");
-  if (summaryFilter.checked && accountFilter.value !== "ALL") labels.push("Summen gefiltert");
-  if (transactionSearch.value.trim()) labels.push(`Suche: „${transactionSearch.value.trim()}“`);
-  activeFilters.textContent = `Aktive Filter: ${labels.join(" · ")}`;
+  const filters = [
+    ["Zeitraum", dateRangeLabel(), dateFromFilter.value || dateToFilter.value ? "period" : "year"],
+    ["Konto", accountFilter.value === "BANK" ? "Bankkonto" : accountFilter.value === "PAYPAL" ? "PayPal-Konto" : null, "account"],
+    ["Art", typeFilter.value === "INCOME" ? "Einnahmen" : typeFilter.value === "EXPENSE" ? "Ausgaben" : null, "type"],
+    ["Abgleich", reconciliationFilter.value === "OPEN" ? "Noch offen" : reconciliationFilter.value === "RECONCILED" ? "Abgeglichen" : null, "reconciliation"],
+    ["Suche", transactionSearch.value.trim() ? `„${transactionSearch.value.trim()}“` : null, "search"],
+    ["Summen", summaryFilter.checked && accountFilter.value !== "ALL" ? "Nach Konto gefiltert" : null, "summary"],
+  ].filter(([, label]) => label);
+  activeFilters.replaceChildren();
+  const heading = document.createElement("span");
+  heading.className = "active-filters-label";
+  heading.textContent = filters.length ? "Aktive Filter" : "Keine aktiven Filter";
+  activeFilters.append(heading);
+  filters.forEach(([name, label, key]) => {
+    const chip = document.createElement("span");
+    chip.className = "active-filter-chip";
+    const text = document.createElement("span");
+    text.textContent = `${name}: ${label}`;
+    chip.append(text);
+    if (key !== "year") {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", `Filter ${name} entfernen`);
+      remove.addEventListener("click", () => {
+        if (key === "account") {
+          accountFilter.value = "ALL";
+          summaryFilter.checked = false;
+        } else if (key === "type") typeFilter.value = "ALL";
+        else if (key === "reconciliation") reconciliationFilter.value = "ALL";
+        else if (key === "search") transactionSearch.value = "";
+        else if (key === "summary") summaryFilter.checked = false;
+        else if (key === "period") {
+          dateFromFilter.value = "";
+          dateToFilter.value = "";
+        }
+        currentPage = 0;
+        refreshDateRange();
+      });
+      chip.append(remove);
+    }
+    activeFilters.append(chip);
+  });
+}
+
+function currentFilterState() {
+  return {
+    year: yearFilter.value,
+    start: dateFromFilter.value,
+    end: dateToFilter.value,
+    account: accountFilter.value,
+    summary: summaryFilter.checked,
+    search: transactionSearch.value,
+    type: typeFilter.value,
+    reconciliation: reconciliationFilter.value,
+  };
+}
+
+function applyFilterState(filters) {
+  yearFilter.value = filters.year;
+  dateFromFilter.value = filters.start;
+  dateToFilter.value = filters.end;
+  accountFilter.value = filters.account;
+  summaryFilter.checked = filters.summary;
+  transactionSearch.value = filters.search;
+  typeFilter.value = filters.type;
+  reconciliationFilter.value = filters.reconciliation;
+  selectedTransactionIds.clear();
+  refreshDateRange();
+}
+
+function renderSavedFilterChips() {
+  const chips = [];
+  const last30Days = document.createElement("button");
+  last30Days.type = "button";
+  last30Days.className = "button button-secondary button-edit";
+  last30Days.textContent = "Letzte 30 Tage";
+  last30Days.addEventListener("click", () => document.querySelector('[data-date-preset="30"]').click());
+  chips.push(last30Days);
+
+  const openReconciliations = document.createElement("button");
+  openReconciliations.type = "button";
+  openReconciliations.className = "button button-secondary button-edit";
+  openReconciliations.textContent = "Offene Abgleiche";
+  openReconciliations.addEventListener("click", () => {
+    reconciliationFilter.value = "OPEN";
+    currentPage = 0;
+    refreshTransactions();
+  });
+  chips.push(openReconciliations);
+
+  savedFilters.forEach((filter, index) => {
+    const group = document.createElement("span");
+    group.className = "saved-filter-chip";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "button button-secondary button-edit";
+    apply.textContent = filter.name;
+    apply.addEventListener("click", () => applyFilterState(filter.filters));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "saved-filter-remove";
+    remove.textContent = "×";
+    remove.setAttribute("aria-label", `Gespeicherten Filter ${filter.name} entfernen`);
+    remove.addEventListener("click", () => {
+      savedFilters.splice(index, 1);
+      persistSavedFilters();
+    });
+    group.append(apply, remove);
+    chips.push(group);
+  });
+  savedFilterChips.replaceChildren(...chips);
+}
+
+function persistSavedFilters() {
+  try {
+    localStorage.setItem(savedFiltersKey, JSON.stringify(savedFilters));
+    renderSavedFilterChips();
+  } catch (error) {
+    setFinanceStatus(`Gespeicherte Filter konnten nicht gespeichert werden: ${error.message}`, "status-error");
+  }
+}
+
+function loadSavedFilters() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(savedFiltersKey) || "[]");
+    const valid = Array.isArray(parsed) && parsed.every(filter =>
+      typeof filter?.name === "string"
+      && filter.name.trim().length > 0
+      && filter.name.length <= 40
+      && /^\d{4}$/.test(filter.filters?.year)
+      && (!filter.filters?.start || /^\d{4}-\d{2}-\d{2}$/.test(filter.filters.start))
+      && (!filter.filters?.end || /^\d{4}-\d{2}-\d{2}$/.test(filter.filters.end))
+      && ["ALL", "BANK", "PAYPAL"].includes(filter.filters?.account)
+      && typeof filter.filters?.summary === "boolean"
+      && typeof filter.filters?.search === "string"
+      && ["ALL", "INCOME", "EXPENSE"].includes(filter.filters?.type)
+      && ["ALL", "OPEN", "RECONCILED"].includes(filter.filters?.reconciliation));
+    if (!valid) throw new Error("Ungültiges gespeichertes Filterformat.");
+    savedFilters = parsed.slice(0, 10);
+  } catch (error) {
+    savedFilters = [];
+    setFinanceStatus(`Gespeicherte Filter konnten nicht geladen werden: ${error.message}`, "status-error");
+  }
+  renderSavedFilterChips();
+}
+
+function updateBulkReconcileControls() {
+  bulkReconcileButton.disabled = selectedTransactionIds.size === 0;
+  bulkReconcileButton.textContent = selectedTransactionIds.size
+    ? `Auswahl abgleichen (${selectedTransactionIds.size})`
+    : "Auswahl abgleichen";
+  if (selectVisibleTransactions) {
+    const eligible = transactions.filter(item => !item.deleted_at && !item.reconciled_at);
+    const selectedCount = eligible.filter(item => selectedTransactionIds.has(item.id)).length;
+    selectVisibleTransactions.checked = eligible.length > 0 && selectedCount === eligible.length;
+    selectVisibleTransactions.indeterminate = selectedCount > 0 && selectedCount < eligible.length;
+  }
 }
 
 function getExportFilters() {
@@ -221,7 +383,6 @@ async function loadTransactions() {
   const { data: analyticsData } = analyticsResult;
   transactions = data || [];
   transactionAnalytics = analyticsData;
-  updateActiveFilters();
   totalPages = Math.max(1, Math.ceil((count || 0) / pageSize));
   previousPage.disabled = currentPage === 0;
   nextPage.disabled = currentPage >= totalPages - 1;
@@ -229,6 +390,7 @@ async function loadTransactions() {
   const availableYears = [...new Set([String(new Date().getFullYear()), ...years])].sort().reverse();
   const selectedYear = availableYears.includes(yearFilter.value) ? yearFilter.value : availableYears[0];
   yearFilter.replaceChildren(...availableYears.map(value => new Option(value, value, value === selectedYear, value === selectedYear)));
+  updateActiveFilters();
   renderTransactions();
 }
 
@@ -332,6 +494,8 @@ function getFinanceErrorMessage(error) {
 async function refreshTransactions() {
   if (loadingTransactions) return;
   loadingTransactions = true;
+  selectedTransactionIds.clear();
+  updateBulkReconcileControls();
   retryTransactions.hidden = true;
   financeContent.setAttribute("aria-busy", "true");
   setFinanceStatus("Finanzdaten werden geladen …");
@@ -353,8 +517,16 @@ function renderTransactions() {
   const filtered = transactions;
   const totals = transactionAnalytics?.totals || {};
   const period = dateRangeLabel();
+  setText("#summary-period", `Kennzahlen für ${period}`);
   document.querySelector("#bank-balance-label").textContent = `Bankkonto · Saldo ${period}`;
   document.querySelector("#paypal-balance-label").textContent = `PayPal-Konto · Saldo ${period}`;
+  setText("#reconciliation-period", period);
+  const reconciliation = transactionAnalytics?.reconciliation || {};
+  for (const [account, prefix] of [["BANK", "bank"], ["PAYPAL", "paypal"]]) {
+    const values = reconciliation[account] || {};
+    setText(`#${prefix}-open-summary`, `${Number(values.open_count || 0)} · ${money(values.open_amount || 0)}`);
+    setText(`#${prefix}-reconciled-summary`, `${Number(values.reconciled_count || 0)} · ${money(values.reconciled_amount || 0)}`);
+  }
   setText("#total-income", money(totals.income));
   setText("#total-expenses", money(totals.expenses));
   setText("#total-balance", money(Number(totals.income) - Number(totals.expenses)));
@@ -363,42 +535,66 @@ function renderTransactions() {
   renderAnalytics(transactionAnalytics);
   transactionList.replaceChildren(...filtered.map(item => {
     const row = document.createElement("tr");
-    row.innerHTML = "<td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td><td></td><td></td><td></td>";
-    row.children[0].dataset.label = "Datum";
-    row.children[1].dataset.label = "Konto";
-    row.children[2].dataset.label = "Beschreibung";
-    row.children[3].dataset.label = "Typ";
-    row.children[4].dataset.label = "Betrag";
-    row.children[5].dataset.label = "Kategorie";
-    row.children[6].dataset.label = "Abgleich";
-    row.children[7].dataset.label = "Geändert";
-    row.children[8].dataset.label = "Aktion";
-    row.children[0].textContent = formatDate(item.transaction_date);
-    row.children[1].textContent = item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
-    row.children[2].textContent = item.description;
-    row.children[3].textContent = item.type === "INCOME" ? "Einnahme" : "Ausgabe";
-    row.children[4].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
-    row.children[4].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
-    row.children[5].textContent = item.category;
-    row.children[6].textContent = item.reconciled_at
+    row.classList.add(item.type === "INCOME" ? "income-transaction" : "expense-transaction");
+    row.innerHTML = "<td></td><td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td><td></td><td></td><td></td>";
+    row.children[0].hidden = !isAdministrator() || Boolean(item.deleted_at) || Boolean(item.reconciled_at);
+    row.children[0].dataset.label = "Auswahl";
+    if (!row.children[0].hidden) {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selectedTransactionIds.has(item.id);
+      checkbox.dataset.transactionId = String(item.id);
+      checkbox.setAttribute("aria-label", `Buchung ${item.description} auswählen`);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) selectedTransactionIds.add(item.id);
+        else selectedTransactionIds.delete(item.id);
+        updateBulkReconcileControls();
+      });
+      row.children[0].append(checkbox);
+    }
+    row.children[1].dataset.label = "Datum";
+    row.children[2].dataset.label = "Konto";
+    row.children[3].dataset.label = "Beschreibung";
+    row.children[4].dataset.label = "Typ";
+    row.children[5].dataset.label = "Betrag";
+    row.children[6].dataset.label = "Kategorie";
+    row.children[7].dataset.label = "Abgleich";
+    row.children[8].dataset.label = "Geändert";
+    row.children[9].dataset.label = "Aktion";
+    row.children[1].textContent = formatDate(item.transaction_date);
+    row.children[2].className = `account-cell ${item.account === "PAYPAL" ? "account-cell-paypal" : "account-cell-bank"}`;
+    const accountIcon = document.createElement("span");
+    accountIcon.className = "account-row-icon";
+    accountIcon.setAttribute("aria-hidden", "true");
+    accountIcon.textContent = item.account === "PAYPAL" ? "↗" : "▤";
+    const accountName = document.createElement("span");
+    accountName.textContent = item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
+    row.children[2].append(accountIcon, accountName);
+    row.children[3].textContent = item.description;
+    row.children[4].textContent = item.type === "INCOME" ? "Einnahme" : "Ausgabe";
+    row.children[5].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
+    row.children[5].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
+    row.children[6].textContent = item.category;
+    row.children[7].textContent = item.reconciled_at
       ? `Abgeglichen ${formatDate(item.reconciled_at.slice(0, 10))}${item.reconciled_by_email ? ` · ${item.reconciled_by_email}` : ""}`
       : "Offen";
-    row.children[6].className = item.reconciled_at ? "reconciliation-done" : "reconciliation-open";
-    row.children[7].textContent = item.updated_by_email
+    row.children[7].className = item.reconciled_at ? "reconciliation-done" : "reconciliation-open";
+    row.children[8].textContent = item.updated_by_email
       ? `${formatDate(item.updated_at.slice(0, 10))} · ${item.updated_by_email}`
       : `Erstellt ${formatDate(item.created_at.slice(0, 10))}${item.created_by_email ? ` · ${item.created_by_email}` : ""}`;
-    row.children[8].hidden = !isAdministrator();
+    row.children[9].hidden = !isAdministrator();
+    row.children[9].classList.add("transaction-actions");
     if (!isAdministrator()) return row;
     if (item.deleted_at) {
       row.classList.add("deleted-transaction");
       row.children[3].textContent += " · gelöscht";
-      row.children[7].textContent = `Gelöscht ${formatDate(item.deleted_at.slice(0, 10))}${item.deleted_by_email ? ` · ${item.deleted_by_email}` : ""}`;
+      row.children[8].textContent = `Gelöscht ${formatDate(item.deleted_at.slice(0, 10))}${item.deleted_by_email ? ` · ${item.deleted_by_email}` : ""}`;
       const restoreButton = document.createElement("button");
       restoreButton.className = "button button-secondary button-edit";
       restoreButton.type = "button";
       restoreButton.textContent = "Wiederherstellen";
       restoreButton.addEventListener("click", () => restoreTransaction(item));
-      row.children[8].append(restoreButton);
+      row.children[9].append(restoreButton);
     } else {
       const reconcileButton = document.createElement("button");
       reconcileButton.className = `button ${item.reconciled_at ? "button-secondary" : "button-reconcile"} button-edit`;
@@ -406,35 +602,36 @@ function renderTransactions() {
       reconcileButton.textContent = item.reconciled_at ? "Abgleich aufheben" : "Abgleichen";
       reconcileButton.setAttribute("aria-pressed", String(Boolean(item.reconciled_at)));
       reconcileButton.addEventListener("click", () => setTransactionReconciled(item));
-      row.children[8].append(reconcileButton);
+      row.children[9].append(reconcileButton);
       const editButton = document.createElement("button");
       editButton.className = "button button-secondary button-edit";
       editButton.type = "button";
       editButton.textContent = "Ändern";
       editButton.addEventListener("click", () => openTransactionEditor(item));
-      row.children[8].append(editButton);
+      row.children[9].append(editButton);
       const deleteButton = document.createElement("button");
       deleteButton.className = "button button-danger button-edit";
       deleteButton.type = "button";
       deleteButton.textContent = "Löschen";
       deleteButton.addEventListener("click", () => deleteTransaction(item));
-      row.children[8].append(deleteButton);
+      row.children[9].append(deleteButton);
       const duplicateButton = document.createElement("button");
       duplicateButton.className = "button button-secondary button-edit";
       duplicateButton.type = "button";
       duplicateButton.textContent = "Duplizieren";
       duplicateButton.addEventListener("click", () => openTransactionEditor(item, true));
-      row.children[8].append(duplicateButton);
+      row.children[9].append(duplicateButton);
     }
     const auditButton = document.createElement("button");
     auditButton.className = "button button-secondary button-edit";
     auditButton.type = "button";
     auditButton.textContent = "Verlauf";
     auditButton.addEventListener("click", () => openTransactionAudit(item));
-    row.children[8].append(auditButton);
+    row.children[9].append(auditButton);
     return row;
   }));
-  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="9" class="muted">Keine Buchungen für den gewählten Zeitraum und Filter.</td></tr>';
+  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="10" class="muted">Keine Buchungen für den gewählten Zeitraum und Filter.</td></tr>';
+  updateBulkReconcileControls();
 }
 
 function renderAnalytics(analytics) {
@@ -454,20 +651,23 @@ function renderAnalytics(analytics) {
     const row = document.createElement("div");
     row.className = "month-row";
     const label = document.createElement("span");
+    label.className = "month-label";
     label.textContent = item.name;
     const bars = document.createElement("div");
     bars.className = "month-bars";
     bars.setAttribute("aria-hidden", "true");
-    const incomeBar = document.createElement("i");
-    incomeBar.className = "income-bar";
-    incomeBar.style.width = `${Number(item.income) / maxAmount * 100}%`;
-    const expenseBar = document.createElement("i");
-    expenseBar.className = "expense-bar";
-    expenseBar.style.width = `${Number(item.expenses) / maxAmount * 100}%`;
-    bars.append(incomeBar, expenseBar);
+    for (const [type, amount] of [["income", item.income], ["expense", item.expenses]]) {
+      const track = document.createElement("span");
+      track.className = `month-track ${type}-track`;
+      const fill = document.createElement("i");
+      fill.style.width = `${Number(amount) / maxAmount * 100}%`;
+      track.append(fill);
+      bars.append(track);
+    }
     const balance = document.createElement("small");
     balance.textContent = money(Number(item.income) - Number(item.expenses));
     balance.title = "Monatssaldo";
+    balance.className = Number(item.income) >= Number(item.expenses) ? "month-balance-positive" : "month-balance-negative";
     const values = document.createElement("div");
     values.className = "month-values";
     values.innerHTML = `<span class="income-value">Einnahmen ${escapeHtml(money(item.income))}</span><span class="expense-value">Ausgaben ${escapeHtml(money(item.expenses))}</span>`;
@@ -497,7 +697,14 @@ function renderAnalytics(analytics) {
 
   const categoryEntries = analytics?.categories || [];
   const maxCategory = Math.max(1, ...categoryEntries.map(([, amount]) => amount));
-  categorySummary.replaceChildren(...(categoryEntries.length ? categoryEntries : [["Keine Ausgaben", 0]]).map(([category, amount]) => {
+  categorySummary.replaceChildren(...(categoryEntries.length ? categoryEntries : [null]).map(entry => {
+    if (!entry) {
+      const empty = document.createElement("p");
+      empty.className = "analytics-empty";
+      empty.textContent = "Keine Ausgaben im gewählten Zeitraum.";
+      return empty;
+    }
+    const [category, amount] = entry;
     const row = document.createElement("div");
     row.className = "category-row";
     const label = document.createElement("span");
@@ -510,11 +717,22 @@ function renderAnalytics(analytics) {
     bar.append(fill);
     const total = document.createElement("strong");
     total.textContent = money(amount);
-    row.append(label, bar, total);
+    const share = document.createElement("small");
+    share.className = "category-share";
+    share.textContent = `${Math.round(Number(amount) / maxCategory * 100)} %`;
+    row.append(label, bar, total, share);
     return row;
   }));
-  categoryData.replaceChildren(...(categoryEntries.length ? categoryEntries : [["Keine Ausgaben", 0]]).map(([category, amount]) => {
+  categoryData.replaceChildren(...(categoryEntries.length ? categoryEntries : [null]).map(entry => {
     const row = document.createElement("tr");
+    if (!entry) {
+      const cell = document.createElement("td");
+      cell.colSpan = 2;
+      cell.textContent = "Keine Ausgaben im gewählten Zeitraum.";
+      row.append(cell);
+      return row;
+    }
+    const [category, amount] = entry;
     const label = document.createElement("th");
     label.scope = "row";
     label.textContent = category;
@@ -809,6 +1027,32 @@ async function setTransactionReconciled(transaction) {
   }
 }
 
+async function reconcileSelectedTransactions() {
+  if (!isAdministrator() || !selectedTransactionIds.size) return;
+  const ids = [...selectedTransactionIds];
+  if (!window.confirm(`${ids.length} ausgewählte Buchung${ids.length === 1 ? "" : "en"} als abgeglichen markieren?`)) return;
+  bulkReconcileButton.disabled = true;
+  try {
+    const { data, error } = await supabaseClient.from("transactions")
+      .update({ reconciled_at: new Date().toISOString() })
+      .in("id", ids)
+      .is("deleted_at", null)
+      .is("reconciled_at", null)
+      .select("id");
+    if (error) throw error;
+    const updatedCount = data?.length || 0;
+    selectedTransactionIds.clear();
+    setWriteSetupStatus(`${updatedCount} Buchung${updatedCount === 1 ? "" : "en"} abgeglichen.`);
+    await refreshTransactions();
+    setFinanceStatus(`${updatedCount} Buchung${updatedCount === 1 ? "" : "en"} abgeglichen.`, "status-success");
+  } catch (error) {
+    setWriteSetupStatus(`Sammelabgleich fehlgeschlagen: ${error.message}`, true);
+    setFinanceStatus(`Sammelabgleich fehlgeschlagen: ${error.message}`, "status-error");
+  } finally {
+    updateBulkReconcileControls();
+  }
+}
+
 async function openCsvImport() {
   if (!isAdministrator()) return;
   csvImportForm.reset();
@@ -1068,7 +1312,49 @@ async function exportTransactionsAsPdf() {
   }
 }
 
-async function exportTransactionsAsCsv() {
+const exportColumnOptions = [
+  ["transaction_date", "Datum"],
+  ["account", "Konto"],
+  ["description", "Beschreibung"],
+  ["type", "Art"],
+  ["amount", "Betrag"],
+  ["category", "Kategorie"],
+  ["reconciled", "Abgleichstatus"],
+  ["reconciled_at", "Abgeglichen am"],
+  ["reconciled_by_email", "Abgeglichen von"],
+];
+
+function exportColumnValue(item, key) {
+  if (key === "account") return item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
+  if (key === "type") return item.type === "INCOME" ? "Einnahme" : "Ausgabe";
+  if (key === "amount") return Number(item.amount).toFixed(2).replace(".", ",");
+  if (key === "reconciled") return item.reconciled_at ? "Ja" : "Nein";
+  return item[key] || "";
+}
+
+async function loadAuditEntriesForExport(rows) {
+  const entries = [];
+  const ids = rows.map(row => row.id);
+  for (let index = 0; index < ids.length; index += 100) {
+    const chunk = ids.slice(index, index + 100);
+    let offset = 0;
+    while (true) {
+      const { data, error } = await supabaseClient.from("transaction_audit_log")
+        .select("transaction_id, action, actor_email, occurred_at, old_data, new_data")
+        .in("transaction_id", chunk)
+        .order("occurred_at", { ascending: false })
+        .range(offset, offset + 499);
+      if (error) throw error;
+      entries.push(...(data || []));
+      if (entries.length > 10000) throw new Error("Der Änderungsverlauf umfasst mehr als 10.000 Einträge. Bitte den Zeitraum verkleinern.");
+      if (!data?.length || data.length < 500) break;
+      offset += data.length;
+    }
+  }
+  return entries;
+}
+
+async function exportTransactionsAsCsv(selectedColumns, includeAudit) {
   exportCsvTransactions.disabled = true;
   setFinanceStatus("CSV-Export: Buchungen werden geladen …");
   try {
@@ -1095,20 +1381,27 @@ async function exportTransactionsAsCsv() {
     }
     const quote = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
     const safeText = value => /^[\s\u0000-\u001f]*[=+\-@]/.test(String(value ?? "")) ? `'${value}` : value;
+    const columns = exportColumnOptions.filter(([key]) => selectedColumns.includes(key));
     const lines = [
-      ["Datum", "Konto", "Beschreibung", "Art", "Betrag", "Kategorie", "Abgleich", "Abgeglichen am", "Abgeglichen von"].map(quote).join(";"),
-      ...rows.map(item => [
-        item.transaction_date,
-        item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto",
-        safeText(item.description),
-        item.type === "INCOME" ? "Einnahme" : "Ausgabe",
-        Number(item.amount).toFixed(2).replace(".", ","),
-        safeText(item.category),
-        item.reconciled_at ? "Ja" : "Nein",
-        item.reconciled_at || "",
-        safeText(item.reconciled_by_email || ""),
-      ].map(quote).join(";")),
+      columns.map(([, label]) => quote(label)).join(";"),
+      ...rows.map(item => columns.map(([key]) => quote(safeText(exportColumnValue(item, key)))).join(";")),
     ];
+    if (includeAudit) {
+      setFinanceStatus(`CSV-Export: Änderungsverlauf für ${rows.length} Buchungen wird geladen …`);
+      const auditEntries = await loadAuditEntriesForExport(rows);
+      const byId = new Map(rows.map(row => [row.id, row.description]));
+      lines.push("", [quote("Änderungsverlauf"), quote("Buchungs-ID"), quote("Beschreibung"), quote("Zeitpunkt"), quote("Aktion"), quote("Benutzer"), quote("Vorher"), quote("Nachher")].join(";"));
+      lines.push(...auditEntries.map(entry => [
+        "",
+        entry.transaction_id,
+        safeText(byId.get(entry.transaction_id) || ""),
+        entry.occurred_at,
+        safeText(entry.action),
+        safeText(entry.actor_email),
+        safeText(JSON.stringify(entry.old_data || {})),
+        safeText(JSON.stringify(entry.new_data || {})),
+      ].map(quote).join(";")));
+    }
     const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1116,7 +1409,7 @@ async function exportTransactionsAsCsv() {
     link.download = `uhc-prinzen-buchungen-${dateRange.start}-bis-${dateRange.end}.csv`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setFinanceStatus(`CSV-Export mit ${rows.length} Buchungen heruntergeladen.`, "status-success");
+    setFinanceStatus(`CSV-Export mit ${rows.length} Buchungen${includeAudit ? " und Änderungsverlauf" : ""} heruntergeladen.`, "status-success");
   } catch (error) {
     setFinanceStatus(`CSV-Export fehlgeschlagen: ${error.message}`, "status-error");
   } finally {
@@ -1372,6 +1665,8 @@ function refreshDateRange() {
   dateToFilter.setAttribute("aria-invalid", String(Boolean(isInvalid)));
   currentPage = 0;
   if (isInvalid) {
+    selectedTransactionIds.clear();
+    updateBulkReconcileControls();
     updateActiveFilters();
     setFinanceStatus("Das Startdatum darf nicht nach dem Enddatum liegen.", "status-error");
     return;
@@ -1412,7 +1707,62 @@ resetFilters.addEventListener("click", () => {
   refreshDateRange();
 });
 exportTransactions.addEventListener("click", exportTransactionsAsPdf);
-exportCsvTransactions.addEventListener("click", exportTransactionsAsCsv);
+exportCsvTransactions.addEventListener("click", () => {
+  try {
+    const storedColumns = JSON.parse(localStorage.getItem(csvColumnsKey) || "null");
+    if (Array.isArray(storedColumns)) {
+      csvExportForm.querySelectorAll('[name="export-column"]').forEach(input => {
+        input.checked = storedColumns.includes(input.value);
+      });
+    }
+  } catch (error) {
+    csvExportStatus.textContent = `Gespeicherte Spaltenauswahl konnte nicht geladen werden: ${error.message}`;
+  }
+  exportAudit.checked = false;
+  csvExportDialog.showModal();
+});
+csvExportForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const selectedColumns = [...csvExportForm.querySelectorAll('[name="export-column"]:checked')].map(input => input.value);
+  if (!selectedColumns.length) {
+    csvExportStatus.textContent = "Bitte mindestens eine Buchungsspalte auswählen.";
+    return;
+  }
+  try {
+    localStorage.setItem(csvColumnsKey, JSON.stringify(selectedColumns));
+  } catch (error) {
+    csvExportStatus.textContent = `Spaltenauswahl kann nicht gespeichert werden: ${error.message}`;
+  }
+  csvExportDialog.close();
+  await exportTransactionsAsCsv(selectedColumns, isAdministrator() && exportAudit.checked);
+});
+saveFilterButton.addEventListener("click", () => {
+  if (savedFilters.length >= 10) {
+    setFinanceStatus("Es können höchstens 10 Filteransichten gespeichert werden.", "status-error");
+    return;
+  }
+  const name = window.prompt("Name für diese Filteransicht:");
+  if (!name?.trim()) return;
+  const normalizedName = name.trim().slice(0, 40);
+  if (savedFilters.some(filter => filter.name.toLocaleLowerCase() === normalizedName.toLocaleLowerCase())) {
+    setFinanceStatus("Ein gespeicherter Filter mit diesem Namen existiert bereits.", "status-error");
+    return;
+  }
+  savedFilters.push({ name: normalizedName, filters: currentFilterState() });
+  persistSavedFilters();
+});
+bulkReconcileButton.addEventListener("click", reconcileSelectedTransactions);
+selectVisibleTransactions.addEventListener("change", () => {
+  const eligible = transactions.filter(item => !item.deleted_at && !item.reconciled_at);
+  eligible.forEach(item => {
+    if (selectVisibleTransactions.checked) selectedTransactionIds.add(item.id);
+    else selectedTransactionIds.delete(item.id);
+  });
+  transactionList.querySelectorAll("[data-transaction-id]").forEach(input => {
+    input.checked = selectedTransactionIds.has(Number(input.dataset.transactionId));
+  });
+  updateBulkReconcileControls();
+});
 retryTransactions.addEventListener("click", refreshTransactions);
 previousPage.addEventListener("click", () => {
   if (currentPage === 0) return;
@@ -1597,6 +1947,7 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
 });
 
 if (supabaseClient) {
+  loadSavedFilters();
   supabaseClient.auth.onAuthStateChange((event, nextSession) => {
     if (event === "PASSWORD_RECOVERY") {
       setAuthenticated(nextSession);

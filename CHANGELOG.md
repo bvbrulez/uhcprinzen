@@ -12,6 +12,15 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - `M – src/styles/components.css`
 - `M – supabase/schema.sql`
 
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-29:
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+- `M – supabase/schema.sql`
+
 
 ### Freie Zeiträume und Buchungsabgleich ergänzt
 
@@ -24,6 +33,26 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Datenbankschema und Audit-Logging um Abgleichsmetadaten erweitert.
 - Eine verständlichere Meldung für JWT-Fehler wegen einer in der Zukunft
   liegenden Ausstellungszeit ergänzt.
+- README auf individuelle Supabase-Zugänge für beliebig viele lesende
+  Mitglieder aktualisiert.
+- Gespeicherte Filteransichten und Schnellfilter als Filterchips ergänzt.
+- Sammelabgleich mit Kontenübersicht für offene und abgeglichene Buchungen
+  sowie Beträge umgesetzt.
+- Monats- und Kategorieauswertungen für den schnelleren Überblick oberhalb der
+  Buchungsliste platziert.
+- CSV-Export um Spaltenauswahl und optionalen Export des Auditverlaufs erweitert.
+- Monatsübersicht und Kategorienauswertung mit klarerer visueller Hierarchie,
+  Karten, aussagekräftigen Saldo-/Vergleichsmarken und optimierter Mobilansicht
+  aufgefrischt.
+- Gesamtsaldo als Hauptkennzahl hervorgehoben, Bank- und PayPal-Konten visuell
+  differenziert und Monatsverläufe mit getrennten Vergleichsbalken gestaltet.
+- Filter in Zeitraum-, Konto- und Buchungsgruppen geordnet; aktive Filter lassen
+  sich jetzt einzeln als Chips entfernen.
+- Buchungszeilen für Einnahmen und Ausgaben dezent farblich markiert und
+  Aktionsbuttons kompakter angeordnet.
+- Administrator-exklusive Aktionen zentral gekennzeichnet und für Mitglieder
+  mit Lesezugriff konsequent ausgeblendet.
+- README um individuelle lesende Supabase-Konten erweitert.
 
 ### `b0b029e` – feat: improve finance workflows and navigation
 

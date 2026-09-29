@@ -38,18 +38,18 @@ Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
    bzw. erneuter Anmeldung wirksam. Alle angemeldeten Mitglieder behalten
    Lesezugriff.
 
-5. Unter **Authentication → Users** die berechtigten Mitglieder anlegen. Der
-   Login-Bereich verwendet Supabase `signInWithPassword` und stellt bestehende
-   Sessions beim Laden der Seite automatisch wieder her.
-   Für den Lesezugang einen Auth-Benutzer mit Name `Prinzenkroeten`, gültiger
-   E-Mail-Adresse und einem eigenen sicheren Passwort anlegen. In dessen
-   `user_metadata` `display_name: "Prinzenkroeten"` setzen; `app_metadata`
-   erhält ausdrücklich keine Admin-Rolle. Der Benutzer meldet sich mit der
-   E-Mail-Adresse und dem vergebenen Passwort an und erhält nur Lesezugriff.
-   Für den Passwort-Reset die GitHub-Pages-URL unter **Authentication → URL
-   Configuration → Redirect URLs** freigeben. Der Link wird an die eingegebene
-   E-Mail gesendet; die Anwendung speichert oder verarbeitet kein bestehendes
-   Passwort.
+5. Unter **Authentication → Users** alle berechtigten Mitglieder als eigene
+   Auth-Benutzer anlegen. Der Login-Bereich verwendet Supabase
+   `signInWithPassword` und stellt bestehende Sessions beim Laden der Seite
+   automatisch wieder her. Jeder Benutzer meldet sich mit seiner eigenen
+   E-Mail-Adresse und dem für sein Konto gesetzten Passwort an. Für
+   ausschließlich lesenden Zugriff darf in `app_metadata` keine Admin-Rolle
+   gesetzt sein; `user_metadata.display_name` kann optional für den angezeigten
+   Namen verwendet werden. Es gibt keine gemeinsamen oder fest eingebauten
+   Zugangsdaten. Für den Passwort-Reset die GitHub-Pages-URL unter
+   **Authentication → URL Configuration → Redirect URLs** freigeben. Der Link
+   wird an die eingegebene E-Mail gesendet; die Anwendung speichert oder
+   verarbeitet kein bestehendes Passwort.
 6. Die Seite über GitHub Pages veröffentlichen oder `src/` auf einen statischen
    Webserver deployen.
 
@@ -58,8 +58,10 @@ Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
 Monats- und Kategorieauswertungen übernehmen Jahr oder frei gewählten Zeitraum,
 Buchungsart, Abgleichstatus und Suche sowie optional den Konto-Summenfilter. Schnellfilter für
 die letzten 30 Tage, den aktuellen Monat und das laufende Jahr helfen bei der
-Auswahl. Wenn ein eigenes Startdatum gesetzt wird und das Enddatum leer bleibt,
-reicht der Zeitraum bis heute; ohne Startdatum beginnt er am Jahresanfang.
+Auswahl; häufige und selbst gespeicherte Filteransichten stehen als Chips bereit
+und werden lokal im Browser gespeichert. Wenn ein eigenes Startdatum gesetzt
+wird und das Enddatum leer bleibt, reicht der Zeitraum bis heute; ohne
+Startdatum beginnt er am Jahresanfang.
 PDF- und CSV-Export verwenden dieselben Datums- und Buchungsfilter. Der
 PDF-Export lädt Buchungen in Seiten zu je 500 Einträgen und zeigt währenddessen
 den Fortschritt an. Kategorien werden
@@ -107,10 +109,23 @@ Kategorie-Diagramme bieten zusätzlich aufklappbare Datentabellen, die per
 Tastatur und Screenreader nutzbar sind.
 
 Administratoren können Buchungen nach Abgleichstatus filtern und nach Prüfung
-mit Kontoauszügen als abgeglichen markieren. Zeitpunkt und Benutzer werden
-gespeichert und sind in Listen sowie Exporten sichtbar; der Verlauf protokolliert
-auch das Abgleichen und Aufheben eines Abgleichs. Neue Buchungen und CSV-Importe
-beginnen standardmäßig als offen.
+mit Kontoauszügen einzeln oder gesammelt als abgeglichen markieren. Die
+Abgleichübersicht fasst offene und abgeglichene Buchungsanzahl sowie Betrag für
+Bank- und PayPal-Konto im ausgewählten Zeitraum zusammen. Zeitpunkt und Benutzer
+werden gespeichert und sind in Listen sowie Exporten sichtbar; der Verlauf
+protokolliert auch das Abgleichen und Aufheben eines Abgleichs. Neue Buchungen
+und CSV-Importe beginnen standardmäßig als offen.
+
+Der CSV-Export erlaubt eine eigene Spaltenauswahl und merkt sie im Browser für
+den nächsten Export. Administratoren können optional zusätzlich den
+Änderungsverlauf der exportierten Buchungen in derselben Datei mit ausgeben.
+Monats- und Kategorieauswertungen stehen direkt oberhalb der Filter und
+Buchungsliste, damit die Entwicklung des ausgewählten Zeitraums schneller
+erkennbar ist. Der Gesamtsaldo ist als Hauptkennzahl hervorgehoben; Bank- und
+PayPal-Konto erhalten eigene dezente Farben. Zeitraum-, Konto- und
+Buchungsfilter sind gruppiert, aktive Filter lassen sich einzeln über Chips
+entfernen. Einnahmen und Ausgaben sind in der Liste durch dezente Farbakzente
+unterscheidbar.
 
 ## Admin-Zugänge verwalten
 

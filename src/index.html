@@ -31,17 +31,49 @@
         </div>
         <div id="finance-content" hidden aria-busy="false">
           <div class="summary-grid">
+            <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
             <div class="summary-card income"><span>Gesamteinnahmen · beide Konten</span><strong id="total-income">0,00 €</strong></div>
             <div class="summary-card expense"><span>Gesamtausgaben · beide Konten</span><strong id="total-expenses">0,00 €</strong></div>
-            <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
           </div>
+          <p id="summary-period" class="summary-period" aria-live="polite"></p>
           <div class="account-summary-grid">
-            <div class="account-summary"><span id="bank-balance-label">Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div>
-            <div class="account-summary"><span id="paypal-balance-label">PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div>
+            <div class="account-summary bank-account"><span class="account-icon" aria-hidden="true">▤</span><div><span id="bank-balance-label">Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div></div>
+            <div class="account-summary paypal-account"><span class="account-icon" aria-hidden="true">↗</span><div><span id="paypal-balance-label">PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div></div>
           </div>
+          <section class="reconciliation-summary" aria-labelledby="reconciliation-summary-heading">
+            <h3 id="reconciliation-summary-heading">Abgleich nach Konto · <span id="reconciliation-period"></span></h3>
+            <p class="analytics-caption">Anzahl und Bruttosumme der Buchungen; unabhängig von den übrigen Filtern.</p>
+            <div class="reconciliation-summary-grid">
+              <article class="reconciliation-account"><h4>Bankkonto</h4><p>Offen <strong id="bank-open-summary">–</strong></p><p>Abgeglichen <strong id="bank-reconciled-summary">–</strong></p></article>
+              <article class="reconciliation-account"><h4>PayPal-Konto</h4><p>Offen <strong id="paypal-open-summary">–</strong></p><p>Abgeglichen <strong id="paypal-reconciled-summary">–</strong></p></article>
+            </div>
+          </section>
           <p class="finance-explanation">Bank- und PayPal-Karten berücksichtigen Zeitraum und zeigen unabhängig von Konto-, Buchungsart-, Abgleich- und Suchfilter den jeweiligen Saldo. Gesamteinnahmen, Gesamtausgaben, Gesamtsaldo und Auswertungen folgen dem Zeitraum sowie Buchungsart, Abgleichstatus und Suche; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
+          <div class="analytics-grid">
+            <section class="analytics-card" aria-labelledby="monthly-heading">
+              <h3 id="monthly-heading">Monatsübersicht</h3>
+              <p class="analytics-caption">Einnahmen und Ausgaben im gewählten Zeitraum auf einen Blick.</p>
+              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span></div>
+              <div id="monthly-summary" class="monthly-summary" role="group" aria-label="Monatliche Einnahmen, Ausgaben und Salden" tabindex="0"></div>
+              <details class="analytics-data">
+                <summary>Monatswerte als Tabelle anzeigen</summary>
+                <div class="table-scroll"><table><caption>Monatliche Einnahmen, Ausgaben und Salden</caption><thead><tr><th>Monat</th><th class="number">Einnahmen</th><th class="number">Ausgaben</th><th class="number">Saldo</th></tr></thead><tbody id="monthly-data"></tbody></table></div>
+              </details>
+            </section>
+            <section class="analytics-card" aria-labelledby="category-heading">
+              <h3 id="category-heading">Ausgaben nach Kategorie</h3>
+              <p class="analytics-caption">Anteil der Ausgaben im Vergleich zur stärksten Kategorie.</p>
+              <div id="category-summary" class="category-summary" role="group" aria-label="Ausgaben nach Kategorie" tabindex="0"></div>
+              <details class="analytics-data">
+                <summary>Kategoriewerte als Tabelle anzeigen</summary>
+                <div class="table-scroll"><table><caption>Ausgaben nach Kategorie</caption><thead><tr><th>Kategorie</th><th class="number">Ausgaben</th></tr></thead><tbody id="category-data"></tbody></table></div>
+              </details>
+            </section>
+          </div>
           <div class="finance-toolbar">
             <div class="filter-controls">
+              <fieldset class="filter-group period-filter-group">
+                <legend>Zeitraum</legend>
               <label>Jahr <select id="year-filter"></select></label>
               <label>Von <input id="date-from-filter" type="date" /></label>
               <label>Bis <input id="date-to-filter" type="date" /></label>
@@ -50,6 +82,9 @@
                 <button class="button button-secondary button-edit" type="button" data-date-preset="month">Dieser Monat</button>
                 <button class="button button-secondary button-edit" type="button" data-date-preset="year">Dieses Jahr</button>
               </div>
+              </fieldset>
+              <fieldset class="filter-group account-filter-group">
+                <legend>Konto</legend>
               <label>Konto
                 <select id="account-filter">
                   <option value="ALL">Alle Konten</option>
@@ -58,6 +93,9 @@
                 </select>
               </label>
               <label class="checkbox-label"><input id="summary-filter" type="checkbox"> Summen nach Konto filtern</label>
+              </fieldset>
+              <fieldset class="filter-group booking-filter-group">
+                <legend>Buchungen</legend>
               <label>Suche <input id="transaction-search" type="search" placeholder="Beschreibung oder Kategorie"></label>
               <label>Art
                 <select id="type-filter">
@@ -73,21 +111,27 @@
                   <option value="RECONCILED">Abgeglichen</option>
                 </select>
               </label>
+              </fieldset>
             </div>
             <div class="toolbar-actions">
               <button id="reset-filters" class="button button-secondary" type="button">Filter zurücksetzen</button>
               <button id="export-transactions" class="button button-secondary" type="button">PDF exportieren</button>
-              <button id="export-csv-transactions" class="button button-secondary" type="button">CSV exportieren</button>
-              <button id="manage-categories" class="button button-secondary" type="button" hidden>Kategorien verwalten</button>
-              <button id="import-transactions" class="button button-secondary" type="button" hidden>CSV importieren</button>
-              <button id="manage-recurring" class="button button-secondary" type="button" hidden>Wiederholungen</button>
-              <label id="show-deleted-label" class="checkbox-label" hidden><input id="show-deleted" type="checkbox"> Gelöschte Buchungen</label>
-              <button id="new-transaction" class="button" type="button" hidden>+ Neue Buchung</button>
+              <button id="export-csv-transactions" class="button button-secondary" type="button">CSV konfigurieren</button>
+              <button id="bulk-reconcile" class="button button-reconcile" type="button" disabled hidden data-admin-only>Auswahl abgleichen</button>
+              <button id="manage-categories" class="button button-secondary" type="button" hidden data-admin-only>Kategorien verwalten</button>
+              <button id="import-transactions" class="button button-secondary" type="button" hidden data-admin-only>CSV importieren</button>
+              <button id="manage-recurring" class="button button-secondary" type="button" hidden data-admin-only>Wiederholungen</button>
+              <label id="show-deleted-label" class="checkbox-label" hidden data-admin-only><input id="show-deleted" type="checkbox"> Gelöschte Buchungen</label>
+              <button id="new-transaction" class="button" type="button" hidden data-admin-only>+ Neue Buchung</button>
             </div>
           </div>
-          <p id="active-filters" class="active-filters" aria-live="polite"></p>
+          <div id="active-filters" class="active-filters" aria-live="polite" aria-label="Aktive Filter"></div>
+          <div class="saved-filter-toolbar">
+            <div id="saved-filter-chips" class="saved-filter-chips" role="group" aria-label="Gespeicherte Filter"></div>
+            <button id="save-filter" class="button button-secondary button-edit" type="button">Aktuelle Filter speichern</button>
+          </div>
           <div class="table-scroll">
-            <table><caption class="sr-only">Buchungen</caption><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Abgleich</th><th>Geändert</th><th id="transactions-actions-header"><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
+            <table><caption class="sr-only">Buchungen</caption><thead><tr><th id="transaction-select-header" hidden data-admin-only><input id="select-visible-transactions" type="checkbox" aria-label="Offene Buchungen dieser Seite auswählen" /></th><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Abgleich</th><th>Geändert</th><th id="transactions-actions-header" hidden data-admin-only><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
           </div>
           <div class="pagination">
             <button id="previous-page" class="button button-secondary" type="button" disabled>← Zurück</button>
@@ -101,26 +145,6 @@
             <p id="write-setup-status" role="status">Schreibrechte: werden bei der ersten Änderung geprüft.</p>
           </div>
           <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
-          <div class="analytics-grid">
-            <section class="analytics-card" aria-labelledby="monthly-heading">
-              <h3 id="monthly-heading">Monatsübersicht</h3>
-              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span><span>Saldo wird rechts angezeigt</span></div>
-              <div id="monthly-summary" class="monthly-summary" role="group" aria-label="Monatliche Einnahmen, Ausgaben und Salden" tabindex="0"></div>
-              <details class="analytics-data">
-                <summary>Monatswerte als Tabelle anzeigen</summary>
-                <div class="table-scroll"><table><caption>Monatliche Einnahmen, Ausgaben und Salden</caption><thead><tr><th>Monat</th><th class="number">Einnahmen</th><th class="number">Ausgaben</th><th class="number">Saldo</th></tr></thead><tbody id="monthly-data"></tbody></table></div>
-              </details>
-            </section>
-            <section class="analytics-card" aria-labelledby="category-heading">
-              <h3 id="category-heading">Ausgaben nach Kategorie</h3>
-              <p class="analytics-caption">Die Balken zeigen den Anteil an der stärksten Kategorie.</p>
-              <div id="category-summary" class="category-summary" role="group" aria-label="Ausgaben nach Kategorie" tabindex="0"></div>
-              <details class="analytics-data">
-                <summary>Kategoriewerte als Tabelle anzeigen</summary>
-                <div class="table-scroll"><table><caption>Ausgaben nach Kategorie</caption><thead><tr><th>Kategorie</th><th class="number">Ausgaben</th></tr></thead><tbody id="category-data"></tbody></table></div>
-              </details>
-            </section>
-          </div>
         </div>
         <p id="finance-login-hint" class="muted">Die Finanzdaten sind aus Datenschutzgründen nur für angemeldete Mitglieder sichtbar. Melde dich an, um die Mannschaftskasse zu sehen.</p>
       </section>
@@ -216,6 +240,27 @@
         <ol id="audit-history" class="audit-history"></ol>
         <p id="audit-status" class="status" role="status" aria-live="polite"></p>
       </div>
+    </dialog>
+    <dialog id="csv-export-dialog">
+      <form id="csv-export-form" class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Buchungsexport</p><h2>CSV-Export konfigurieren</h2>
+        <fieldset class="export-column-list">
+          <legend>Spalten für Buchungen</legend>
+          <label><input type="checkbox" name="export-column" value="transaction_date" checked /> Datum</label>
+          <label><input type="checkbox" name="export-column" value="account" checked /> Konto</label>
+          <label><input type="checkbox" name="export-column" value="description" checked /> Beschreibung</label>
+          <label><input type="checkbox" name="export-column" value="type" checked /> Art</label>
+          <label><input type="checkbox" name="export-column" value="amount" checked /> Betrag</label>
+          <label><input type="checkbox" name="export-column" value="category" checked /> Kategorie</label>
+          <label><input type="checkbox" name="export-column" value="reconciled" checked /> Abgleichstatus</label>
+          <label><input type="checkbox" name="export-column" value="reconciled_at" checked /> Abgeglichen am</label>
+          <label><input type="checkbox" name="export-column" value="reconciled_by_email" checked /> Abgeglichen von</label>
+        </fieldset>
+        <label id="export-audit-label" class="checkbox-label" hidden data-admin-only><input id="export-audit" type="checkbox" /> Änderungsverlauf zusätzlich exportieren</label>
+        <p id="csv-export-status" class="status" role="status" aria-live="polite"></p>
+        <button class="button" type="submit">CSV herunterladen</button>
+      </form>
     </dialog>
     <dialog id="transaction-dialog">
       <form id="transaction-form" class="dialog-form">
