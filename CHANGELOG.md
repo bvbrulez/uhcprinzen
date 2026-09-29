@@ -6,6 +6,13 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-09-29:
+- `M – src/index.html`
+- `M – src/styles/components.css`
+- `M – supabase/schema.sql`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-09-29:
 - `M – README.md`
 - `M – src/index.html`
 - `M – src/scripts/app.js`
@@ -53,6 +60,10 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Administrator-exklusive Aktionen zentral gekennzeichnet und für Mitglieder
   mit Lesezugriff konsequent ausgeblendet.
 - README um individuelle lesende Supabase-Konten erweitert.
+- Header-Link „Mannschaftskasse“ als hervorgehobene, responsive Navigationskapsel
+  gestaltet.
+- Header-Logo mit klarerem Rahmen, ausgewogener Größe und verbessertem
+  Fokus-/Hover-Zustand aufgewertet.
 
 ### `b0b029e` – feat: improve finance workflows and navigation
 
