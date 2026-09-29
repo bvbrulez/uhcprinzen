@@ -25,9 +25,10 @@ Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
    [`supabase/base-schema.sql`](supabase/base-schema.sql), anschließend
    [`supabase/schema.sql`](supabase/schema.sql) ausführen. Bei einem
    bestehenden Projekt nur das Delta-Skript `supabase/schema.sql` ausführen.
-   Es ergänzt Konto- und Audit-Spalten, Soft-Delete, Index, Trigger,
-   gefilterte Reporting-Funktionen und die aktuellen RLS-Policies. Nach
-   Schemaänderungen muss das Delta-Skript erneut ausgeführt werden.
+   Es ergänzt Konto- und Audit-Spalten, Soft-Delete, Kategorien,
+   Wiederholungsbuchungen, den Änderungsverlauf, gefilterte Reporting-Funktionen
+   und die aktuellen RLS-Policies. Nach Schemaänderungen muss das Delta-Skript
+   erneut ausgeführt werden.
 4. Buchungen dürfen nur Administratoren anlegen, bearbeiten oder löschen.
    `bvbrulez@gmail.com` ist als Admin fest zugelassen; weitere Admins benötigen
    serverseitig `app_metadata.role: "admin"`. Diese Rolle ausschließlich über
@@ -65,6 +66,40 @@ Kategorien werden bei der Migration übernommen.
 PDF-Exporte sind auf 5.000 Buchungen begrenzt, um Browser-Speicher und
 Druckansicht zu schützen. Bei größeren Treffermengen bitte Zeitraum, Konto
 oder Suchfilter eingrenzen.
+
+Administratoren können bis zu 500 Buchungen aus CSV-Dateien importieren.
+Profile für Sparkasse, Volks-/Raiffeisenbank, Deutsche Bank/Postbank, PayPal
+und Standard-CSV schlagen passende Spaltenzuordnungen vor; diese lassen sich
+vor dem Import anpassen. Ein Beispiel-CSV-Download zeigt das unterstützte
+Format. Beträge mit Vorzeichen sowie getrennte Soll-/Haben-Spalten bestimmen
+automatisch Einnahme oder Ausgabe, wenn keine passende Art-Spalte vorhanden
+ist. Die Vorschau markiert ungültige Zeilen sowie exakte Dubletten anhand von
+Datum, Buchungsart, Konto, Beschreibung und Betrag; markierte Zeilen werden
+übersprungen. CSV-Dateien benötigen eine Kopfzeile und ein Datum im ISO- oder
+deutschen Format. Ohne Kontospalte wird das Bankkonto, ohne Kategoriespalte
+„Sonstiges“ verwendet.
+
+Neben dem PDF kann die gefilterte Buchungsliste als UTF-8-CSV exportiert und in
+Tabellenkalkulationen geöffnet werden. Der Export berücksichtigt Jahr, Konto,
+Buchungsart und Suche, ist auf 5.000 Buchungen begrenzt und schützt Textfelder
+vor der Ausführung als Tabellenformel.
+
+Unter **Wiederholungen** können wöchentliche, monatliche und jährliche
+Buchungsvorlagen verwaltet und pausiert werden. Ein optionales Enddatum begrenzt
+die Fälligkeiten; fällige Vorkommen werden nur nach manueller Bestätigung
+erzeugt und in der Oberfläche hervorgehoben. Das Datum des ersten monatlichen
+Vorkommens bestimmt den Monatstag; bei kürzeren Monaten wird der letzte
+Monatstag verwendet. Jährliche Termine am 29. Februar fallen in Nicht-Schalt-
+jahren auf den 28. Februar. Die Datenbank verhindert Doppelbuchungen für
+dasselbe Vorkommen.
+
+Administratoren können gelöschte Buchungen über **Gelöschte Buchungen**
+anzeigen und wiederherstellen. **Verlauf** zeigt Erstellungs-, Änderungs-,
+Lösch- und Wiederherstellungszeitpunkt, Benutzer sowie die betroffenen
+Buchungswerte direkt im Vorher-nachher-Vergleich. Der Auditverlauf beginnt mit
+dem Zeitpunkt, an dem das aktuelle Delta-Skript ausgeführt wird. Monats- und
+Kategorie-Diagramme bieten zusätzlich aufklappbare Datentabellen, die per
+Tastatur und Screenreader nutzbar sind.
 
 ## Admin-Zugänge verwalten
 

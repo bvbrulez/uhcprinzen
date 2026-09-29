@@ -15,10 +15,12 @@
         <img src="assets/uhc-logo.png" alt="UHC Prinzen" />
       </a>
       <nav class="site-nav" aria-label="Hauptnavigation">
-        <a href="#finanzen">Finanzen</a>
-        <button id="login-toggle" class="button button-small" type="button">Anmelden</button>
-        <button id="logout-button" class="button button-small" type="button" hidden>Abmelden</button>
+        <a href="#finanzen">Mannschaftskasse</a>
       </nav>
+      <div class="auth-actions">
+        <button id="login-toggle" class="button button-small" type="button" hidden>Anmelden</button>
+        <button id="logout-button" class="button button-small" type="button" hidden>Abmelden</button>
+      </div>
     </header>
 
     <main>
@@ -61,7 +63,11 @@
             <div class="toolbar-actions">
               <button id="reset-filters" class="button button-secondary" type="button">Filter zurücksetzen</button>
               <button id="export-transactions" class="button button-secondary" type="button">PDF exportieren</button>
+              <button id="export-csv-transactions" class="button button-secondary" type="button">CSV exportieren</button>
               <button id="manage-categories" class="button button-secondary" type="button" hidden>Kategorien verwalten</button>
+              <button id="import-transactions" class="button button-secondary" type="button" hidden>CSV importieren</button>
+              <button id="manage-recurring" class="button button-secondary" type="button" hidden>Wiederholungen</button>
+              <label id="show-deleted-label" class="checkbox-label" hidden><input id="show-deleted" type="checkbox"> Gelöschte Buchungen</label>
               <button id="new-transaction" class="button" type="button" hidden>+ Neue Buchung</button>
             </div>
           </div>
@@ -85,12 +91,20 @@
             <section class="analytics-card" aria-labelledby="monthly-heading">
               <h3 id="monthly-heading">Monatsübersicht</h3>
               <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span><span>Saldo wird rechts angezeigt</span></div>
-              <div id="monthly-summary" class="monthly-summary"></div>
+              <div id="monthly-summary" class="monthly-summary" role="group" aria-label="Monatliche Einnahmen, Ausgaben und Salden" tabindex="0"></div>
+              <details class="analytics-data">
+                <summary>Monatswerte als Tabelle anzeigen</summary>
+                <div class="table-scroll"><table><caption>Monatliche Einnahmen, Ausgaben und Salden</caption><thead><tr><th>Monat</th><th class="number">Einnahmen</th><th class="number">Ausgaben</th><th class="number">Saldo</th></tr></thead><tbody id="monthly-data"></tbody></table></div>
+              </details>
             </section>
             <section class="analytics-card" aria-labelledby="category-heading">
               <h3 id="category-heading">Ausgaben nach Kategorie</h3>
               <p class="analytics-caption">Die Balken zeigen den Anteil an der stärksten Kategorie.</p>
-              <div id="category-summary" class="category-summary"></div>
+              <div id="category-summary" class="category-summary" role="group" aria-label="Ausgaben nach Kategorie" tabindex="0"></div>
+              <details class="analytics-data">
+                <summary>Kategoriewerte als Tabelle anzeigen</summary>
+                <div class="table-scroll"><table><caption>Ausgaben nach Kategorie</caption><thead><tr><th>Kategorie</th><th class="number">Ausgaben</th></tr></thead><tbody id="category-data"></tbody></table></div>
+              </details>
             </section>
           </div>
         </div>
@@ -131,6 +145,63 @@
         <p id="category-management-status" class="status" role="status" aria-live="polite"></p>
         <ul id="category-management-list" class="category-management-list"></ul>
       </form>
+    </dialog>
+    <dialog id="csv-import-dialog">
+      <form id="csv-import-form" class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Nur Administratoren</p><h2>CSV importieren</h2>
+        <p class="muted">Unterstützt CSV-Dateien mit Komma, Semikolon oder Tabulator und bis zu 500 Buchungen pro Import. Bankprofile ordnen typische Spalten zu; der Beispiel-CSV-Download zeigt das erwartete Format. Bei einem einzelnen Betragsfeld bestimmt das Vorzeichen Einnahme oder Ausgabe. Nicht zugeordnete Konten verwenden das Bankkonto; ohne Kategorie wird „Sonstiges“ genutzt.</p>
+        <label>CSV-Profil
+          <select id="csv-profile">
+            <option value="auto">Automatisch erkennen</option>
+            <option value="generic">Standard / beliebige Bank</option>
+            <option value="sparkasse">Sparkasse</option>
+            <option value="volksbank">Volksbank / Raiffeisenbank</option>
+            <option value="deutsche-bank">Deutsche Bank / Postbank</option>
+            <option value="paypal">PayPal</option>
+          </select>
+        </label>
+        <button id="download-csv-example" class="button button-secondary" type="button">Beispiel-CSV herunterladen</button>
+        <label>CSV-Datei <input id="csv-file" type="file" accept=".csv,text/csv,text/plain" required /></label>
+        <div id="csv-column-mapping" class="csv-column-mapping"></div>
+        <p id="csv-import-status" class="status" role="status" aria-live="polite"></p>
+        <div class="table-scroll csv-preview-scroll"><table><caption>Vorschau des CSV-Imports</caption><thead><tr><th>Zeile</th><th>Datum</th><th>Art</th><th>Konto</th><th>Beschreibung</th><th>Betrag</th><th>Kategorie</th><th>Prüfung</th></tr></thead><tbody id="csv-preview"></tbody></table></div>
+        <div class="dialog-actions"><button id="csv-import-submit" class="button" type="submit" disabled>Geprüfte Buchungen importieren</button></div>
+      </form>
+    </dialog>
+    <dialog id="recurring-dialog">
+      <form id="recurring-form" class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Nur Administratoren</p><h2>Wiederholungsbuchungen</h2>
+        <p class="muted">Fällige Buchungen werden nur auf Knopfdruck erstellt. Der eindeutige Termin verhindert doppelte Buchungen.</p>
+        <button id="create-due-recurring" class="button button-secondary" type="button">Fällige Buchungen jetzt erzeugen</button>
+        <ul id="recurring-list" class="category-management-list"></ul>
+        <h3 id="recurring-form-heading">Wiederholung hinzufügen</h3>
+        <label>Beschreibung <input id="recurring-description" maxlength="120" required /></label>
+        <div class="form-row">
+          <label>Typ <select id="recurring-type"><option value="INCOME">Einnahme</option><option value="EXPENSE">Ausgabe</option></select></label>
+          <label>Konto <select id="recurring-account"><option value="BANK">Bankkonto</option><option value="PAYPAL">PayPal-Konto</option></select></label>
+        </div>
+        <div class="form-row">
+          <label>Betrag in Euro <input id="recurring-amount" type="number" min="0.01" step="0.01" required /></label>
+          <label>Kategorie <select id="recurring-category" required></select></label>
+        </div>
+        <div class="form-row">
+          <label>Erste Fälligkeit <input id="recurring-next-date" type="date" required /></label>
+          <label>Rhythmus <select id="recurring-interval"><option value="weekly">Wöchentlich</option><option value="monthly" selected>Monatlich</option><option value="yearly">Jährlich</option></select></label>
+        </div>
+        <label>Letzte Fälligkeit (optional) <input id="recurring-end-date" type="date" /></label>
+        <div class="dialog-actions"><button id="recurring-cancel-edit" class="button button-secondary" type="button" hidden>Bearbeiten abbrechen</button><button class="button" type="submit">Wiederholung speichern</button></div>
+        <p id="recurring-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+    <dialog id="audit-dialog">
+      <div class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Buchungshistorie</p><h2 id="audit-heading">Änderungsverlauf</h2>
+        <ol id="audit-history" class="audit-history"></ol>
+        <p id="audit-status" class="status" role="status" aria-live="polite"></p>
+      </div>
     </dialog>
     <dialog id="transaction-dialog">
       <form id="transaction-form" class="dialog-form">
