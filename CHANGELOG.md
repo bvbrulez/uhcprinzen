@@ -3,42 +3,23 @@
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 ## 2026-09-29
-### Änderungen aus diesem Commit
 
-- Aktualisiert am 2026-09-29:
-- `M – README.md`
-- `M – src/index.html`
-- `M – src/scripts/app.js`
-- `M – src/styles/components.css`
-- `M – supabase/schema.sql`
+### `b0b029e` – feat: improve finance workflows and navigation
 
-
-### Navigation im Header angepasst
-
-- Link „Finanzen“ in „Mannschaftskasse“ umbenannt und mittig zwischen Logo und
-  Anmeldebereich platziert; auf Mobilgeräten in einer eigenen zentrierten Zeile.
-
-### CSV, Wiederholungen und Änderungsverlauf erweitert
-
-- CSV-Import um gängige Bankprofile, Beispiel-Datei und automatische Erkennung
-  von Einnahmen/Ausgaben aus Vorzeichen sowie Soll-/Haben-Spalten erweitert.
-- Gefilterten CSV-Export mit Tabellenkalkulationsschutz ergänzt.
-- Wiederholungsbuchungen um Wochen- und Jahresrhythmus, optionales Enddatum und
-  Hervorhebung fälliger Termine erweitert.
-- Auditereignisse zeigen geänderte Buchungswerte jetzt direkt im
-  Vorher-nachher-Vergleich.
-
-### Verbesserungen für Import, Wiederholungen, Historie und Barrierefreiheit
-
-- CSV-Import mit Spaltenzuordnung, Vorschau, Validierung und Erkennung exakter
-  Dubletten ergänzt.
-- Monatliche Wiederholungsbuchungen mit Fälligkeitsprüfung und datenbankseitigem
-  Schutz vor doppelten Vorkommen ergänzt.
-- Änderungsverlauf mit Benutzer- und Buchungsdetails sowie Wiederherstellung
-  gelöschter Buchungen für Administratoren ergänzt.
-- Monats- und Kategorieauswertungen um zugängliche, aufklappbare Datentabellen
-  erweitert.
-- Supabase-Schema und README für die neuen Funktionen aktualisiert.
+- Admin-Rechte für Buchungen und Kategorien abgesichert, zentrale
+  Kategorienverwaltung und Passwort-Wiederherstellung ergänzt.
+- CSV-Import mit Spaltenzuordnung, Vorschau und Dublettenprüfung um Profile für
+  gängige Banken und PayPal sowie automatische Vorzeichen- und Soll/Haben-
+  Erkennung erweitert; gefilterten CSV-Export hinzugefügt.
+- Wiederholungsbuchungen um Wochen-, Monats- und Jahresrhythmus sowie optionale
+  Enddaten erweitert; fällige Termine hervorgehoben.
+- Änderungsverlauf mit Wiederherstellung und Vorher-nachher-Vergleich
+  erweitert; Auswertungen um zugängliche Datentabellen ergänzt.
+- Buttons und mobile Aktionsbereiche überarbeitet; Header-Link in
+  „Mannschaftskasse“ umbenannt und zentriert.
+- Anmeldung und Abmeldung so angepasst, dass jeweils nur die passende Aktion
+  angezeigt wird.
+- README, Changelog und Supabase-Delta-Schema aktualisiert.
 
 ## 2026-09-21
 
