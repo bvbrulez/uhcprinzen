@@ -2,6 +2,37 @@
 
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
+## 2026-10-02
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-02:
+- `A – .github/copilot-instructions.md`
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+- `M – supabase/schema.sql`
+
+
+### Quartalsbeiträge, Kassenstart und Oberflächenüberarbeitung
+
+- Beitragsübersicht pro Mitglied und Quartal mit Status für bezahlt, heute
+  fällig, überfällig und noch nicht fällig ergänzt; Fälligkeit ist jeweils am
+  Quartalsende.
+- Admin-Verwaltung für Mitglieder, Quartalsbeitrag sowie Zuordnung von
+  Einnahmebuchungen zu einem oder mehreren Quartalen ergänzt.
+- Verwaltung auf den 01.10.2026 begrenzt; ältere Buchungen, Änderungsverläufe
+  und Beitragszuordnungen werden beim Ausführen der Supabase-Migration
+  endgültig gelöscht. Vorher ein Datenbank-Backup erstellen.
+- Eingabefelder für Bank- und PayPal-Startsaldo ergänzt und Kontosalden mit
+  Buchungen ab dem Startdatum verknüpft.
+- Datumsfilter, manuelle Buchungen, CSV-Import und Beitragszuordnungen auf den
+  neuen Verwaltungszeitraum begrenzt.
+- Kassenübersicht, Filter, Buchungsliste, Dialoge und mobile Darstellung
+  visuell überarbeitet.
+- Repository-spezifische GitHub-Copilot-Anweisungen ergänzt und README zur
+  Beitragsverwaltung sowie zum Kassenstart aktualisiert.
+
 ## 2026-09-29
 ### Änderungen aus diesem Commit
 

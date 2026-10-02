@@ -69,6 +69,18 @@ const recurringEndDate = document.querySelector("#recurring-end-date");
 const recurringCancelEdit = document.querySelector("#recurring-cancel-edit");
 const auditHistory = document.querySelector("#audit-history");
 const auditStatus = document.querySelector("#audit-status");
+const contributionYear = document.querySelector("#contribution-year");
+const contributionSummary = document.querySelector("#contribution-summary");
+const contributionList = document.querySelector("#contribution-list");
+const contributionError = document.querySelector("#contribution-error");
+const contributionAmount = document.querySelector("#contribution-amount");
+const bankOpeningBalanceInput = document.querySelector("#bank-opening-balance");
+const paypalOpeningBalanceInput = document.querySelector("#paypal-opening-balance");
+const contributionPaymentMember = document.querySelector("#contribution-payment-member");
+const contributionPaymentTransaction = document.querySelector("#contribution-payment-transaction");
+const contributionPaymentQuarter = document.querySelector("#contribution-payment-quarter");
+const contributionPaymentCount = document.querySelector("#contribution-payment-count");
+const contributionAdminStatus = document.querySelector("#contribution-admin-status");
 let session = null;
 let transactions = [];
 let transactionAnalytics = null;
@@ -85,7 +97,17 @@ let recurringEditId = null;
 let selectedTransactionIds = new Set();
 const savedFiltersKey = "uhc-prinzen-saved-filters";
 const csvColumnsKey = "uhc-prinzen-csv-columns";
+const financeStartDate = "2026-10-01";
 let savedFilters = [];
+let teamMembers = [];
+let contributionPayments = [];
+let contributionQuarters = [];
+let contributionIncomeTransactions = [];
+let quarterlyContributionAmount = 75;
+let bankOpeningBalance = 0;
+let paypalOpeningBalance = 0;
+let loadingContributions = false;
+let contributionRefreshPending = false;
 
 const money = value => `${(Number(value) || 0).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("de-DE");
@@ -95,10 +117,15 @@ const todayDate = () => {
 };
 const setText = (selector, value) => { document.querySelector(selector).textContent = value; };
 const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+dateFromFilter.min = financeStartDate;
+dateToFilter.min = financeStartDate;
 
 function resolveDateRange(year, startDate, endDate, today) {
+  const yearStart = `${year}-01-01`;
+  const minimumStart = yearStart < financeStartDate ? financeStartDate : yearStart;
+  const start = startDate && startDate > financeStartDate ? startDate : minimumStart;
   return {
-    start: startDate || `${year}-01-01`,
+    start,
     end: endDate || (startDate ? today : `${year}-12-31`),
   };
 }
@@ -122,7 +149,9 @@ async function loadTransactionYears() {
     .from("transactions")
     .select("transaction_date");
   if (fallbackError) throw fallbackError;
-  return [...new Set(fallbackData.map(item => item.transaction_date.slice(0, 4)))];
+  return [...new Set(fallbackData
+    .filter(item => item.transaction_date >= financeStartDate)
+    .map(item => item.transaction_date.slice(0, 4)))];
 }
 
 function setAuthenticated(nextSession) {
@@ -152,7 +181,14 @@ function setAuthenticated(nextSession) {
     writeSetupStatus.className = "";
     setFinanceStatus("");
   }
-  if (authenticated) refreshTransactions();
+  if (authenticated) {
+    refreshTransactions();
+    refreshContributions();
+  } else {
+    contributionList.replaceChildren();
+    contributionSummary.textContent = "";
+    contributionError.hidden = true;
+  }
 }
 
 function isAdministrator() {
@@ -300,7 +336,10 @@ function loadSavedFilters() {
       && ["ALL", "INCOME", "EXPENSE"].includes(filter.filters?.type)
       && ["ALL", "OPEN", "RECONCILED"].includes(filter.filters?.reconciliation));
     if (!valid) throw new Error("Ungültiges gespeichertes Filterformat.");
-    savedFilters = parsed.slice(0, 10);
+    savedFilters = parsed.filter(filter =>
+      Number(filter.filters.year) >= 2026
+      && (!filter.filters.start || filter.filters.start >= financeStartDate)
+      && (!filter.filters.end || filter.filters.end >= financeStartDate)).slice(0, 10);
   } catch (error) {
     savedFilters = [];
     setFinanceStatus(`Gespeicherte Filter konnten nicht geladen werden: ${error.message}`, "status-error");
@@ -387,7 +426,10 @@ async function loadTransactions() {
   previousPage.disabled = currentPage === 0;
   nextPage.disabled = currentPage >= totalPages - 1;
   pageStatus.textContent = `Seite ${currentPage + 1} von ${totalPages}`;
-  const availableYears = [...new Set([String(new Date().getFullYear()), ...years])].sort().reverse();
+  const availableYears = [...new Set([
+    String(new Date().getFullYear()),
+    ...years.filter(value => `${value}-12-31` >= financeStartDate),
+  ])].sort().reverse();
   const selectedYear = availableYears.includes(yearFilter.value) ? yearFilter.value : availableYears[0];
   yearFilter.replaceChildren(...availableYears.map(value => new Option(value, value, value === selectedYear, value === selectedYear)));
   updateActiveFilters();
@@ -412,6 +454,281 @@ function setCategoryOptions(categories, selected = transactionCategory.value) {
   }
   if (selected) transactionCategory.value = selected;
   if (isAdministrator()) renderCategoryManagementList(categories);
+}
+
+function quarterDate(year, quarterIndex) {
+  return new Date(Date.UTC(year, quarterIndex * 3, 1)).toISOString().slice(0, 10);
+}
+
+function quarterEndDate(year, quarterIndex) {
+  return new Date(Date.UTC(year, (quarterIndex + 1) * 3, 0)).toISOString().slice(0, 10);
+}
+
+function renderContributionPaymentControls() {
+  contributionPaymentMember.replaceChildren(...teamMembers
+    .filter(member => member.active)
+    .map(member => new Option(member.name, String(member.id))));
+  const usedTransactions = new Set(contributionPayments.map(payment => Number(payment.transaction_id)));
+  const availableTransactions = contributionIncomeTransactions.filter(transaction => !usedTransactions.has(Number(transaction.id)));
+  contributionPaymentTransaction.replaceChildren(
+    new Option(availableTransactions.length ? "Einnahme auswählen" : "Keine unzugeordneten Einnahmen", ""),
+    ...availableTransactions.map(transaction => new Option(
+      `${formatDate(transaction.transaction_date)} · ${transaction.description} · ${money(transaction.amount)}`,
+      String(transaction.id),
+    )),
+  );
+  const year = Number(contributionYear.value || new Date().getFullYear());
+  const thisQuarter = Math.floor(new Date().getMonth() / 3);
+  const firstQuarter = year === 2026 ? 3 : 0;
+  contributionPaymentQuarter.replaceChildren(...[firstQuarter, ...Array.from(
+    { length: 3 - firstQuarter },
+    (_, index) => firstQuarter + index + 1,
+  )].map(index => {
+    const option = new Option(`Q${index + 1} ${year}`, quarterDate(year, index));
+    option.selected = year === new Date().getFullYear() && index === thisQuarter;
+    return option;
+  }));
+  if (!contributionPaymentQuarter.value) contributionPaymentQuarter.selectedIndex = 0;
+  contributionPaymentCount.replaceChildren(...Array.from({ length: 12 }, (_, index) => {
+    const count = index + 1;
+    return new Option(`${count} Quartal${count === 1 ? "" : "e"}`, String(count), count === 1, count === 1);
+  }));
+}
+
+function renderTeamContributions() {
+  const years = new Set([
+    ...Array.from(
+      { length: Math.max(1, new Date().getFullYear() + 5 - 2026 + 1) },
+      (_, index) => String(2026 + index),
+    ),
+    ...contributionQuarters.map(item => item.quarter_start.slice(0, 4)).filter(year => year >= "2026"),
+  ]);
+  const selectedYear = years.has(contributionYear.value) ? contributionYear.value : String(new Date().getFullYear());
+  contributionYear.replaceChildren(...[...years].sort((a, b) => Number(b) - Number(a))
+    .map(year => new Option(year, year, year === selectedYear, year === selectedYear)));
+  const year = Number(selectedYear);
+  const paymentsById = new Map(contributionPayments.map(payment => [Number(payment.id), payment]));
+  const paymentsByMemberQuarter = new Map();
+  contributionQuarters.forEach(quarter => {
+    paymentsByMemberQuarter.set(`${quarter.member_id}:${quarter.quarter_start}`, paymentsById.get(Number(quarter.payment_id)));
+  });
+  const activeMembers = teamMembers.filter(member => member.active);
+  const today = todayDate();
+  const eligibleQuarters = [0, 1, 2, 3].filter(index => quarterDate(year, index) >= financeStartDate);
+  const dueQuarters = eligibleQuarters.filter(index => today >= quarterEndDate(year, index));
+  const dueCount = activeMembers.length * dueQuarters.length;
+  let paidDueCount = 0;
+  let openCount = 0;
+  let overdueCount = 0;
+  const futureCount = activeMembers.length * (eligibleQuarters.length - dueQuarters.length);
+  contributionList.replaceChildren(...teamMembers.map(member => {
+    const row = document.createElement("tr");
+    const nameCell = document.createElement("th");
+    nameCell.scope = "row";
+    nameCell.textContent = member.active ? member.name : `${member.name} (inaktiv)`;
+    row.append(nameCell);
+    let memberPaidCount = 0;
+    let memberPaidDueCount = 0;
+    let memberOpenCount = 0;
+    let memberOverdueCount = 0;
+    let memberFutureCount = 0;
+    [0, 1, 2, 3].forEach(index => {
+      const start = quarterDate(year, index);
+      const end = quarterEndDate(year, index);
+      const payment = paymentsByMemberQuarter.get(`${member.id}:${start}`);
+      const cell = document.createElement("td");
+      cell.dataset.label = `Q${index + 1}`;
+      if (start < financeStartDate) {
+        cell.className = "contribution-inactive";
+        cell.textContent = "Vor Beginn";
+      } else if (payment) {
+        memberPaidCount += 1;
+        if (member.active && today >= end) {
+          memberPaidDueCount += 1;
+          paidDueCount += 1;
+        }
+        const description = payment.transaction?.description || `Buchung #${payment.transaction_id}`;
+        const paymentDate = payment.transaction?.transaction_date
+          ? formatDate(payment.transaction.transaction_date)
+          : "";
+        cell.className = "contribution-paid";
+        const badge = document.createElement("span");
+        badge.className = "contribution-status-pill contribution-status-paid";
+        badge.textContent = "Bezahlt";
+        const detail = document.createElement("small");
+        detail.textContent = `${paymentDate ? `${paymentDate} · ` : ""}${money(payment.quarterly_amount)} · ${description}`;
+        cell.append(badge, detail);
+        if (isAdministrator()) {
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "button button-danger button-edit";
+          remove.textContent = "Zuordnung aufheben";
+          remove.addEventListener("click", () => removeContributionPayment(payment));
+          cell.append(remove);
+        }
+      } else {
+        if (!member.active) {
+          cell.className = "contribution-inactive";
+          cell.textContent = "–";
+        } else if (today < end) {
+          memberFutureCount += 1;
+          cell.className = "contribution-not-due";
+          const badge = document.createElement("span");
+          badge.className = "contribution-status-pill contribution-status-future";
+          badge.textContent = "Noch nicht fällig";
+          const detail = document.createElement("small");
+          detail.textContent = `bis ${formatDate(end)}`;
+          cell.append(badge, detail);
+        } else if (today > end) {
+          memberOverdueCount += 1;
+          overdueCount += 1;
+          cell.className = "contribution-overdue";
+          const badge = document.createElement("span");
+          badge.className = "contribution-status-pill contribution-status-overdue";
+          badge.textContent = "Überfällig";
+          const detail = document.createElement("small");
+          detail.textContent = `seit ${formatDate(end)}`;
+          cell.append(badge, detail);
+        } else {
+          memberOpenCount += 1;
+          openCount += 1;
+          cell.className = "contribution-open";
+          const badge = document.createElement("span");
+          badge.className = "contribution-status-pill contribution-status-due";
+          badge.textContent = "Fällig heute";
+          cell.append(badge);
+        }
+      }
+      row.append(cell);
+    });
+    const statusCell = document.createElement("td");
+    statusCell.dataset.label = "Jahresstatus";
+    statusCell.textContent = member.active
+      ? `${memberPaidDueCount}/${dueQuarters.length} fällig bezahlt · ${memberOpenCount} offen · ${memberOverdueCount} überfällig · ${memberFutureCount} noch nicht fällig`
+      : `${memberPaidCount}/${eligibleQuarters.length} bezahlt · inaktiv`;
+    row.append(statusCell);
+    const actionCell = document.createElement("td");
+    actionCell.hidden = !isAdministrator();
+    actionCell.dataset.label = "Mitglied verwalten";
+    if (isAdministrator()) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "button button-secondary button-edit";
+      toggle.textContent = member.active ? "Deaktivieren" : "Reaktivieren";
+      toggle.addEventListener("click", () => toggleTeamMember(member));
+      actionCell.append(toggle);
+    }
+    row.append(actionCell);
+    return row;
+  }));
+  contributionSummary.replaceChildren(
+    ...[
+      ["Fällig bezahlt", `${paidDueCount} / ${dueCount}`, "paid"],
+      ["Überfällig", String(overdueCount), "overdue"],
+      ["Heute fällig", String(openCount), "due"],
+      ["Noch nicht fällig", String(futureCount), "future"],
+      ["Beitrag je Quartal", money(quarterlyContributionAmount), "amount"],
+    ].map(([label, value, kind]) => {
+      const metric = document.createElement("div");
+      metric.className = `contribution-metric contribution-metric-${kind}`;
+      const heading = document.createElement("span");
+      heading.textContent = label;
+      const number = document.createElement("strong");
+      number.textContent = value;
+      metric.append(heading, number);
+      return metric;
+    }),
+  );
+  contributionAmount.value = Number(quarterlyContributionAmount).toFixed(2);
+  bankOpeningBalanceInput.value = Number(bankOpeningBalance).toFixed(2);
+  paypalOpeningBalanceInput.value = Number(paypalOpeningBalance).toFixed(2);
+  renderContributionPaymentControls();
+}
+
+async function refreshContributions() {
+  if (!supabaseClient || !session) return;
+  if (loadingContributions) {
+    contributionRefreshPending = true;
+    return;
+  }
+  loadingContributions = true;
+  contributionError.hidden = true;
+  contributionSummary.textContent = "Beitragsübersicht wird geladen …";
+  try {
+    const [membersResult, settingsResult, paymentsResult, quartersResult, incomeResult] = await Promise.all([
+      supabaseClient.from("team_members").select("id, name, active").order("name"),
+      supabaseClient.from("team_contribution_settings")
+        .select("quarterly_amount, bank_opening_balance, paypal_opening_balance")
+        .eq("id", 1)
+        .maybeSingle(),
+      supabaseClient.from("team_contribution_payments")
+        .select("id, member_id, transaction_id, quarterly_amount, transaction:transactions(description, transaction_date)")
+        .order("created_at", { ascending: false }),
+      supabaseClient.from("team_contribution_payment_quarters")
+        .select("payment_id, member_id, quarter_start"),
+      supabaseClient.from("transactions")
+        .select("id, description, amount, transaction_date")
+        .eq("type", "INCOME")
+          .gte("transaction_date", financeStartDate)
+          .is("deleted_at", null)
+        .order("transaction_date", { ascending: false })
+        .limit(1000),
+    ]);
+    for (const result of [membersResult, settingsResult, paymentsResult, quartersResult, incomeResult]) {
+      if (result.error) throw result.error;
+    }
+    teamMembers = membersResult.data || [];
+    quarterlyContributionAmount = Number(settingsResult.data?.quarterly_amount ?? 75);
+    bankOpeningBalance = Number(settingsResult.data?.bank_opening_balance ?? 0);
+    paypalOpeningBalance = Number(settingsResult.data?.paypal_opening_balance ?? 0);
+    contributionPayments = paymentsResult.data || [];
+    contributionQuarters = quartersResult.data || [];
+    contributionIncomeTransactions = incomeResult.data || [];
+    if (transactionAnalytics) renderTransactions();
+    renderTeamContributions();
+  } catch (error) {
+    contributionSummary.textContent = "Beitragsübersicht konnte nicht geladen werden.";
+    contributionError.textContent = `Beitragsdaten fehlen oder konnten nicht geladen werden: ${error.message} Bitte das aktuelle Delta-Skript supabase/schema.sql im Supabase SQL Editor ausführen und die RLS-Berechtigungen prüfen.`;
+    contributionError.hidden = false;
+  } finally {
+    loadingContributions = false;
+    if (contributionRefreshPending && session) {
+      contributionRefreshPending = false;
+      refreshContributions();
+    } else {
+      contributionRefreshPending = false;
+    }
+  }
+}
+
+async function toggleTeamMember(member) {
+  if (!isAdministrator()) return;
+  try {
+    const { error } = await supabaseClient.from("team_members")
+      .update({ active: !member.active })
+      .eq("id", member.id);
+    if (error) throw error;
+    contributionAdminStatus.textContent = `${member.name} wurde ${member.active ? "deaktiviert" : "reaktiviert"}.`;
+    await refreshContributions();
+  } catch (error) {
+    contributionAdminStatus.textContent = `Mitglied konnte nicht aktualisiert werden: ${error.message}`;
+  }
+}
+
+async function removeContributionPayment(payment) {
+  if (!isAdministrator()) return;
+  const count = contributionQuarters.filter(item => Number(item.payment_id) === Number(payment.id)).length;
+  if (!window.confirm(`Die Zahlungszuordnung für ${count} Quartal${count === 1 ? "" : "e"} wirklich aufheben? Die Einnahme-Buchung bleibt bestehen.`)) return;
+  try {
+    const { error } = await supabaseClient.from("team_contribution_payments")
+      .delete()
+      .eq("id", payment.id);
+    if (error) throw error;
+    contributionAdminStatus.textContent = "Zahlungszuordnung aufgehoben.";
+    await refreshContributions();
+  } catch (error) {
+    contributionAdminStatus.textContent = `Zahlungszuordnung konnte nicht aufgehoben werden: ${error.message}`;
+  }
 }
 
 function renderCategoryManagementList(categories) {
@@ -518,8 +835,12 @@ function renderTransactions() {
   const totals = transactionAnalytics?.totals || {};
   const period = dateRangeLabel();
   setText("#summary-period", `Kennzahlen für ${period}`);
-  document.querySelector("#bank-balance-label").textContent = `Bankkonto · Saldo ${period}`;
-  document.querySelector("#paypal-balance-label").textContent = `PayPal-Konto · Saldo ${period}`;
+  const range = getEffectiveDateRange();
+  const accounts = transactionAnalytics?.accounts || {};
+  const bankBalance = Number(accounts.BANK || 0) + bankOpeningBalance;
+  const paypalBalance = Number(accounts.PAYPAL || 0) + paypalOpeningBalance;
+  document.querySelector("#bank-balance-label").textContent = `Bankkonto · Saldo zum ${formatDate(range.end)}`;
+  document.querySelector("#paypal-balance-label").textContent = `PayPal-Konto · Saldo zum ${formatDate(range.end)}`;
   setText("#reconciliation-period", period);
   const reconciliation = transactionAnalytics?.reconciliation || {};
   for (const [account, prefix] of [["BANK", "bank"], ["PAYPAL", "paypal"]]) {
@@ -529,9 +850,9 @@ function renderTransactions() {
   }
   setText("#total-income", money(totals.income));
   setText("#total-expenses", money(totals.expenses));
-  setText("#total-balance", money(Number(totals.income) - Number(totals.expenses)));
-  setText("#bank-balance", money(transactionAnalytics?.accounts?.BANK));
-  setText("#paypal-balance", money(transactionAnalytics?.accounts?.PAYPAL));
+  setText("#total-balance", money(bankBalance + paypalBalance));
+  setText("#bank-balance", money(bankBalance));
+  setText("#paypal-balance", money(paypalBalance));
   renderAnalytics(transactionAnalytics);
   transactionList.replaceChildren(...filtered.map(item => {
     const row = document.createElement("tr");
@@ -932,6 +1253,7 @@ async function classifyCsvRows() {
       : ["paypal", "paypalkonto"].includes(accountText) ? "PAYPAL" : null;
     const category = getCsvMappedValue(record, "category") || "Sonstiges";
     const error = !date ? "Datum ungültig"
+      : date < financeStartDate ? `Buchungen vor dem ${formatDate(financeStartDate)} liegen außerhalb der Verwaltung`
       : bothColumnsFilled ? "Soll und Haben sind beide befüllt"
         : !type ? "Buchungsart ungültig"
         : !description ? "Beschreibung fehlt"
@@ -1148,7 +1470,7 @@ async function createDueRecurringTransactions() {
     const { data, error } = await supabaseClient.rpc("create_due_recurring_transactions");
     if (error) throw error;
     recurringStatus.textContent = `${data} fällige Buchung${data === 1 ? "" : "en"} erstellt.`;
-    await Promise.all([loadRecurringTransactions(), refreshTransactions()]);
+    await Promise.all([loadRecurringTransactions(), refreshTransactions(), refreshContributions()]);
   } catch (error) {
     recurringStatus.textContent = `Wiederholungsbuchungen konnten nicht erzeugt werden: ${error.message}`;
   } finally {
@@ -1268,7 +1590,9 @@ async function exportTransactionsAsPdf() {
     setFinanceStatus(`PDF-Export: Druckansicht für ${rows.length} Buchungen wird erstellt …`);
     const income = rows.filter(item => item.type === "INCOME").reduce((sum, item) => sum + Number(item.amount), 0);
     const expenses = rows.filter(item => item.type === "EXPENSE").reduce((sum, item) => sum + Number(item.amount), 0);
-    const balanceFor = account => rows.filter(item => item.account === account).reduce((sum, item) => sum + (item.type === "INCOME" ? Number(item.amount) : -Number(item.amount)), 0);
+    const balanceFor = (account, openingBalance) => Number(transactionAnalytics?.accounts?.[account] || 0) + openingBalance;
+    const bankBalance = balanceFor("BANK", bankOpeningBalance);
+    const paypalBalance = balanceFor("PAYPAL", paypalOpeningBalance);
     const filterLabel = exportFilters.account === "ALL" ? "Alle Konten" : exportFilters.account === "BANK" ? "Bankkonto" : "PayPal-Konto";
     const filterSummary = [dateRangeLabel(), filterLabel, exportFilters.type === "ALL" ? "Alle Buchungsarten" : exportFilters.type === "INCOME" ? "Nur Einnahmen" : "Nur Ausgaben"];
     if (exportFilters.search) filterSummary.push(`Suche: ${exportFilters.search}`);
@@ -1295,7 +1619,7 @@ async function exportTransactionsAsPdf() {
         .print-button { background: #176b87; border: 0; color: white; cursor: pointer; padding: 8px 12px; } @media print { .print-button { display: none; } }
       </style></head><body>
       <header><div><img class="logo" src="${escapeHtml(logoUrl)}" alt="UHC Prinzen"><div><h1>UHC Prinzen – Buchungen</h1><div class="meta">${escapeHtml(filterSummary.join(" · "))}</div></div></div><button class="print-button" onclick="window.print()">Als PDF speichern / drucken</button></header>
-      <div class="summary"><div>Einnahmen<strong class="income">${escapeHtml(money(income))}</strong></div><div>Ausgaben<strong class="expense">${escapeHtml(money(expenses))}</strong></div><div>Saldo<strong>${escapeHtml(money(income - expenses))}</strong></div><div>Bankkonto<strong>${escapeHtml(money(balanceFor("BANK")))}</strong></div><div>PayPal-Konto<strong>${escapeHtml(money(balanceFor("PAYPAL")))}</strong></div></div>
+      <div class="summary"><div>Einnahmen im Zeitraum<strong class="income">${escapeHtml(money(income))}</strong></div><div>Ausgaben im Zeitraum<strong class="expense">${escapeHtml(money(expenses))}</strong></div><div>Saldo im Zeitraum<strong>${escapeHtml(money(income - expenses))}</strong></div><div>Saldo Bankkonto zum ${escapeHtml(formatDate(dateRange.end))}<strong>${escapeHtml(money(bankBalance))}</strong></div><div>Saldo PayPal-Konto zum ${escapeHtml(formatDate(dateRange.end))}<strong>${escapeHtml(money(paypalBalance))}</strong></div></div>
       <h2>Alle Buchungen (${rows.length})</h2>
       ${rows.length ? `<table><thead><tr><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="amount">Betrag</th><th>Kategorie</th><th>Abgleich</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr><th colspan="4">Saldo</th><th class="amount">${escapeHtml(money(income - expenses))}</th><th colspan="2"></th></tr></tfoot></table>` : '<p class="empty">Keine Buchungen für den gewählten Zeitraum.</p>'}
       <footer>Erstellt am ${escapeHtml(new Date().toLocaleString("de-DE"))} <span class="page-number"> · Seite </span></footer>
@@ -1530,6 +1854,7 @@ csvImportForm.addEventListener("submit", async event => {
     renderCsvPreview();
     csvImportStatus.textContent = `${rows.length} Buchungen importiert; ${csvPreparedRows.length - rows.length} fehlerhafte oder doppelte Zeilen übersprungen.`;
     await refreshTransactions();
+    await refreshContributions();
   } catch (error) {
     csvImportStatus.textContent = `Import fehlgeschlagen; es wurden keine Buchungen übernommen: ${error.message}`;
   } finally {
@@ -1612,6 +1937,91 @@ recurringCancelEdit.addEventListener("click", () => {
   document.querySelector("#recurring-form-heading").textContent = "Wiederholung hinzufügen";
 });
 document.querySelector("#create-due-recurring").addEventListener("click", createDueRecurringTransactions);
+contributionYear.addEventListener("change", renderTeamContributions);
+document.querySelector("#contribution-settings-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!isAdministrator()) return;
+  const amount = Number(contributionAmount.value);
+  const bankBalance = Number(bankOpeningBalanceInput.value);
+  const paypalBalance = Number(paypalOpeningBalanceInput.value);
+  if (!Number.isFinite(amount) || amount <= 0
+    || !Number.isFinite(bankBalance)
+    || !Number.isFinite(paypalBalance)) {
+    contributionAdminStatus.textContent = "Bitte einen Quartalsbeitrag größer als 0 und gültige Startsalden eingeben.";
+    return;
+  }
+  try {
+    const { error } = await supabaseClient.from("team_contribution_settings").upsert({
+      id: 1,
+      quarterly_amount: amount,
+      bank_opening_balance: bankBalance,
+      paypal_opening_balance: paypalBalance,
+      updated_at: new Date().toISOString(),
+      updated_by: session.user.id,
+    });
+    if (error) throw error;
+    contributionAdminStatus.textContent = "Quartalsbeitrag und Startsalden gespeichert.";
+    await refreshTransactions();
+    await refreshContributions();
+  } catch (error) {
+    contributionAdminStatus.textContent = `Einstellungen konnten nicht gespeichert werden: ${error.message}`;
+  }
+});
+document.querySelector("#contribution-member-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!isAdministrator()) return;
+  const form = event.currentTarget;
+  const name = document.querySelector("#contribution-member-name").value.trim();
+  if (!name) return;
+  try {
+    const { error } = await supabaseClient.from("team_members").insert({ name });
+    if (error) throw error;
+    form.reset();
+    contributionAdminStatus.textContent = `${name} wurde hinzugefügt.`;
+    await refreshContributions();
+  } catch (error) {
+    contributionAdminStatus.textContent = error.code === "23505"
+      ? `„${name}“ ist bereits in der Mitgliederliste.`
+      : `Mitglied konnte nicht hinzugefügt werden: ${error.message}`;
+  }
+});
+document.querySelector("#contribution-payment-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!isAdministrator()) return;
+  const form = event.currentTarget;
+  const memberId = Number(contributionPaymentMember.value);
+  const transactionId = Number(contributionPaymentTransaction.value);
+  const count = Number(contributionPaymentCount.value);
+  const firstQuarter = contributionPaymentQuarter.value;
+  const transaction = contributionIncomeTransactions.find(item => Number(item.id) === transactionId);
+  if (!memberId || !transaction || !firstQuarter || count < 1 || count > 12) {
+    contributionAdminStatus.textContent = "Bitte Mitglied, Einnahme-Buchung und Quartalszeitraum auswählen.";
+    return;
+  }
+  if (Math.round(Number(transaction.amount) * 100) !== Math.round(quarterlyContributionAmount * count * 100)) {
+    contributionAdminStatus.textContent = `Der Buchungsbetrag (${money(transaction.amount)}) muss genau ${money(quarterlyContributionAmount * count)} für ${count} Quartal${count === 1 ? "" : "e"} betragen.`;
+    return;
+  }
+  const quarterDateValue = new Date(`${firstQuarter}T00:00:00Z`);
+  const quarterStarts = Array.from({ length: count }, (_, index) => {
+    const date = new Date(quarterDateValue);
+    date.setUTCMonth(date.getUTCMonth() + index * 3);
+    return date.toISOString().slice(0, 10);
+  });
+  try {
+    const { error } = await supabaseClient.rpc("record_team_contribution_payment", {
+      p_member_id: memberId,
+      p_transaction_id: transactionId,
+      p_quarter_starts: quarterStarts,
+    });
+    if (error) throw error;
+    form.reset();
+    contributionAdminStatus.textContent = `Zahlung über ${money(transaction.amount)} für ${count} Quartal${count === 1 ? "" : "e"} zugeordnet.`;
+    await refreshContributions();
+  } catch (error) {
+    contributionAdminStatus.textContent = `Zahlung konnte nicht zugeordnet werden: ${error.message}`;
+  }
+});
 showDeleted.addEventListener("change", () => {
   if (!isAdministrator()) {
     showDeleted.checked = false;
@@ -1660,7 +2070,9 @@ yearFilter.addEventListener("change", () => {
 });
 function refreshDateRange() {
   const range = getEffectiveDateRange();
-  const isInvalid = range.start > range.end;
+  const isBeforeStart = (dateFromFilter.value && dateFromFilter.value < financeStartDate)
+    || (dateToFilter.value && dateToFilter.value < financeStartDate);
+  const isInvalid = isBeforeStart || range.start > range.end;
   dateFromFilter.setAttribute("aria-invalid", String(Boolean(isInvalid)));
   dateToFilter.setAttribute("aria-invalid", String(Boolean(isInvalid)));
   currentPage = 0;
@@ -1668,7 +2080,9 @@ function refreshDateRange() {
     selectedTransactionIds.clear();
     updateBulkReconcileControls();
     updateActiveFilters();
-    setFinanceStatus("Das Startdatum darf nicht nach dem Enddatum liegen.", "status-error");
+    setFinanceStatus(isBeforeStart
+      ? `Die Verwaltung beginnt am ${formatDate(financeStartDate)}. Frühere Buchungen werden nicht berücksichtigt.`
+      : "Das Startdatum darf nicht nach dem Enddatum liegen.", "status-error");
     return;
   }
   refreshTransactions();
@@ -1849,6 +2263,7 @@ async function deleteTransaction(transaction) {
     }
     setWriteSetupStatus("Löschen erfolgreich.");
     await refreshTransactions();
+    await refreshContributions();
     setFinanceStatus("Buchung erfolgreich gelöscht.", "status-success");
   } catch (error) {
     setWriteSetupStatus(`Löschversuch fehlgeschlagen: ${error.message}`, true);
@@ -1868,6 +2283,7 @@ async function restoreTransaction(transaction) {
     if (error) throw error;
     if (!data?.length) throw new Error("Die Buchung wurde nicht wiederhergestellt. Prüfe die Supabase-Berechtigungen.");
     await refreshTransactions();
+    await refreshContributions();
     setFinanceStatus("Buchung wiederhergestellt.", "status-success");
   } catch (error) {
     setFinanceStatus(`Wiederherstellung fehlgeschlagen: ${error.message}`, "status-error");
@@ -1918,6 +2334,10 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
     transaction_date: document.querySelector("#transaction-date").value,
     category: document.querySelector("#transaction-category").value.trim(),
   };
+  if (payload.transaction_date < financeStartDate) {
+    status.textContent = `Buchungen vor dem ${formatDate(financeStartDate)} liegen außerhalb der Verwaltung.`;
+    return;
+  }
   submit.disabled = true;
   submit.textContent = "Speichern läuft …";
   status.textContent = "";
@@ -1936,6 +2356,7 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
     transactionDialog.close();
     editingTransaction = null;
     await refreshTransactions();
+    await refreshContributions();
     setFinanceStatus(wasEditing ? "Buchung erfolgreich geändert." : "Buchung erfolgreich gespeichert.", "status-success");
   } catch (error) {
     setWriteSetupStatus(`Schreibversuch fehlgeschlagen: ${error.message}`, true);

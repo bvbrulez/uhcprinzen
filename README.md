@@ -127,6 +127,39 @@ Buchungsfilter sind gruppiert, aktive Filter lassen sich einzeln über Chips
 entfernen. Einnahmen und Ausgaben sind in der Liste durch dezente Farbakzente
 unterscheidbar.
 
+## Quartalsbeiträge
+
+Die laufende Kassenverwaltung beginnt am **01.10.2026**. Beim Ausführen des
+aktuellen `supabase/schema.sql` werden ältere Buchungen sowie deren
+Änderungsverlauf und Beitragszuordnungen gelöscht. Diese Löschung ist endgültig.
+Vor dem Ausführen muss deshalb ein Datenbank-Backup erstellt werden. Dateien im
+privaten Belegspeicher werden von dieser Migration nicht gelöscht.
+Buchungen mit Datum vor dem Startdatum werden anschließend auch durch die
+Datenbank abgewiesen.
+
+Administratoren tragen in der Oberfläche den Bank- und PayPal-Startsaldo zum
+01.10.2026 ein. Die Kontostände werden aus diesen Anfangssalden und den
+Buchungen ab diesem Datum bis zum Ende des gewählten Zeitraums berechnet.
+CSV-Import und manuelle Buchungseingabe berücksichtigen ebenfalls nur Daten ab
+dem Startdatum.
+
+Die Beitragsübersicht zeigt für alle angemeldeten Mitglieder den Zahlungsstatus
+je Quartal ab Q4 2026. Beiträge sind am letzten Tag des Quartals fällig und ab
+dem Folgetag überfällig. Bis zum Quartalsende wird ein unbezahlter Beitrag als
+„Noch nicht fällig“ angezeigt; am Fälligkeitstag als „Fällig heute“.
+Administratoren pflegen die separate Mitgliederliste und können Mitglieder
+deaktivieren oder reaktivieren. Der Quartalsbeitrag startet mit 75 Euro und
+kann von Administratoren angepasst werden.
+
+Eine Zahlung wird durch einen Administrator einer vorhandenen Einnahme-Buchung
+und einem Mitglied zugeordnet. Die Buchungssumme muss dem Beitrag multipliziert
+mit der Anzahl der abgedeckten Quartale entsprechen. Zusammenhängende Quartale
+können in einer Zuordnung erfasst werden, auch über einen Jahreswechsel hinweg.
+Eine Einnahme kann nur einmal zugeordnet werden; bereits bezahlte Quartale
+können nicht doppelt verbucht werden. Zum Korrigieren hebt ein Administrator
+die gesamte Zuordnung auf; die Einnahme selbst bleibt bestehen. Die
+Zuordnungen und Mitgliederliste werden durch Supabase-RLS geschützt.
+
 ## Admin-Zugänge verwalten
 
 Admin-Rechte liegen ausschließlich in Supabase `app_metadata.role`. Zum

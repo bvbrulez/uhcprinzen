@@ -48,7 +48,48 @@
               <article class="reconciliation-account"><h4>PayPal-Konto</h4><p>Offen <strong id="paypal-open-summary">–</strong></p><p>Abgeglichen <strong id="paypal-reconciled-summary">–</strong></p></article>
             </div>
           </section>
-          <p class="finance-explanation">Bank- und PayPal-Karten berücksichtigen Zeitraum und zeigen unabhängig von Konto-, Buchungsart-, Abgleich- und Suchfilter den jeweiligen Saldo. Gesamteinnahmen, Gesamtausgaben, Gesamtsaldo und Auswertungen folgen dem Zeitraum sowie Buchungsart, Abgleichstatus und Suche; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
+          <p class="finance-explanation">Die Verwaltung beginnt am 01.10.2026. Bank- und PayPal-Salden enthalten den jeweiligen Startsaldo sowie alle Buchungen ab diesem Datum bis zum Ende des ausgewählten Zeitraums. Einnahmen, Ausgaben und Auswertungen beziehen sich auf den ausgewählten Zeitraum; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
+          <section class="contribution-section" aria-labelledby="contribution-heading">
+            <div class="section-heading">
+              <div><p class="eyebrow">Mannschaftskasse</p><h3 id="contribution-heading">Quartalsbeiträge</h3></div>
+              <label>Jahr <select id="contribution-year" aria-label="Jahr der Beitragsübersicht"></select></label>
+            </div>
+            <div id="contribution-summary" class="contribution-summary" role="status" aria-live="polite">Beitragsübersicht wird geladen …</div>
+            <p class="contribution-deadline-note">Beiträge sind am letzten Tag des Quartals fällig. Danach werden offene Beiträge als überfällig markiert.</p>
+            <div class="table-scroll">
+              <table class="contribution-table">
+                <caption>Beitragsstatus pro Mitglied und Quartal</caption>
+                <thead><tr><th>Mitglied</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Status</th><th data-admin-only hidden>Mitglied verwalten</th></tr></thead>
+                <tbody id="contribution-list"></tbody>
+              </table>
+            </div>
+            <details class="contribution-admin" data-admin-only hidden>
+              <summary>Verwaltung · Beitrag, Startsalden und Zuordnungen</summary>
+              <div class="contribution-admin-content">
+                <form id="contribution-settings-form" class="contribution-settings-form">
+                  <label>Beitrag je Quartal (€) <input id="contribution-amount" type="number" min="0.01" step="0.01" required /></label>
+                  <label>Startsaldo Bankkonto am 01.10.2026 (€) <input id="bank-opening-balance" type="number" step="0.01" required /></label>
+                  <label>Startsaldo PayPal am 01.10.2026 (€) <input id="paypal-opening-balance" type="number" step="0.01" required /></label>
+                  <button class="button button-secondary" type="submit">Beträge speichern</button>
+                </form>
+                <p class="analytics-caption">Die Kontostände zum 01.10.2026 werden als Startsalden verwendet. Alle Buchungen ab diesem Datum werden darauf aufgerechnet.</p>
+                <form id="contribution-member-form" class="contribution-inline-form">
+                  <label>Mitglied hinzufügen <input id="contribution-member-name" maxlength="100" required /></label>
+                  <button class="button button-secondary" type="submit">Hinzufügen</button>
+                </form>
+                <form id="contribution-payment-form" class="contribution-payment-form">
+                  <label>Mitglied <select id="contribution-payment-member" required></select></label>
+                  <label>Einnahme-Buchung <select id="contribution-payment-transaction" required></select></label>
+                  <label>Erstes Quartal <select id="contribution-payment-quarter" required></select></label>
+                  <label>Anzahl Quartale <select id="contribution-payment-count" required></select></label>
+                  <button class="button" type="submit">Zahlung zuordnen</button>
+                  <p id="contribution-admin-status" class="status" role="status" aria-live="polite"></p>
+                </form>
+                <p class="analytics-caption">Eine Zahlung kann mehrere aufeinanderfolgende Quartale abdecken. Der Buchungsbetrag muss exakt dem Quartalsbeitrag mal Quartalsanzahl entsprechen. Korrekturen heben die gesamte Zuordnung dieser Einnahme auf.</p>
+              </div>
+            </details>
+            <p id="contribution-error" class="status status-error" role="alert" hidden></p>
+          </section>
           <div class="analytics-grid">
             <section class="analytics-card" aria-labelledby="monthly-heading">
               <h3 id="monthly-heading">Monatsübersicht</h3>
@@ -75,8 +116,8 @@
               <fieldset class="filter-group period-filter-group">
                 <legend>Zeitraum</legend>
               <label>Jahr <select id="year-filter"></select></label>
-              <label>Von <input id="date-from-filter" type="date" /></label>
-              <label>Bis <input id="date-to-filter" type="date" /></label>
+              <label>Von <input id="date-from-filter" type="date" min="2026-10-01" /></label>
+              <label>Bis <input id="date-to-filter" type="date" min="2026-10-01" /></label>
               <div class="date-presets" role="group" aria-label="Schnellfilter für den Zeitraum">
                 <button class="button button-secondary button-edit" type="button" data-date-preset="30">Letzte 30 Tage</button>
                 <button class="button button-secondary button-edit" type="button" data-date-preset="month">Dieser Monat</button>
@@ -225,7 +266,7 @@
           <label>Kategorie <select id="recurring-category" required></select></label>
         </div>
         <div class="form-row">
-          <label>Erste Fälligkeit <input id="recurring-next-date" type="date" required /></label>
+          <label>Erste Fälligkeit <input id="recurring-next-date" type="date" min="2026-10-01" required /></label>
           <label>Rhythmus <select id="recurring-interval"><option value="weekly">Wöchentlich</option><option value="monthly" selected>Monatlich</option><option value="yearly">Jährlich</option></select></label>
         </div>
         <label>Letzte Fälligkeit (optional) <input id="recurring-end-date" type="date" /></label>
@@ -271,7 +312,7 @@
         <label>Konto <select id="transaction-account" required><option value="BANK">Bankkonto</option><option value="PAYPAL">PayPal-Konto</option></select></label>
         <label>Beschreibung <input id="transaction-description" required maxlength="120" /></label>
         <label>Betrag in Euro <input id="transaction-amount" type="number" min="0.01" step="0.01" required /></label>
-        <label>Datum <input id="transaction-date" type="date" required /></label>
+        <label>Datum <input id="transaction-date" type="date" min="2026-10-01" required /></label>
         <label>Kategorie
           <select id="transaction-category" required>
             <option value="Prinzenkröten">Prinzenkröten</option>
