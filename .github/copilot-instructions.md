@@ -47,7 +47,9 @@ This repo auto-updates `CHANGELOG.md` via the pre-commit hook.
 ## High-level architecture
 
 - `src/index.html`: page structure, all dialogs, filters, tables, and finance UI sections.
-- `src/scripts/app.js`: the application UI and event wiring. Read this for filters, summaries, table/CSV preview rendering, dialog behavior, and admin-only UI.
+- `src/scripts/app.js`: application orchestration, shared state, and event wiring.
+- `src/scripts/transaction-view.mjs`: transaction table, financial summaries, and analytics rendering.
+- `src/scripts/csv-import-controller.mjs`: CSV import dialog, column mapping, validation, duplicate detection, and preview.
 - `src/scripts/auth-service.mjs`: Supabase sign-in/out, password reset, and session wrappers.
 - `src/scripts/transaction-service.mjs`: transaction, category, audit, filter/page, and export data operations.
 - `src/scripts/recurring-service.mjs`: recurring-schedule queries, writes, and due-entry creation.

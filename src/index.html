@@ -30,6 +30,14 @@
           <span id="auth-state" class="status" role="status">Nur für angemeldete Mitglieder</span>
         </div>
         <div id="finance-content" hidden aria-busy="false">
+          <nav class="finance-section-nav" aria-label="Finanzbereiche">
+            <button class="finance-section-tab" type="button" data-finance-view="overview" aria-controls="finance-view-overview" aria-pressed="true">Übersicht</button>
+            <button class="finance-section-tab" type="button" data-finance-view="contributions" aria-controls="finance-view-contributions" aria-pressed="false">
+              Beiträge <span id="contribution-nav-count" class="finance-nav-count" hidden></span>
+            </button>
+            <button class="finance-section-tab" type="button" data-finance-view="bookings" aria-controls="finance-view-bookings" aria-pressed="false">Buchungen</button>
+          </nav>
+          <section id="finance-view-overview" class="finance-view" aria-label="Finanzübersicht" tabindex="-1">
           <div class="summary-grid">
             <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
             <div class="summary-card income"><span>Gesamteinnahmen · beide Konten</span><strong id="total-income">0,00 €</strong></div>
@@ -40,6 +48,10 @@
             <div class="account-summary bank-account"><span class="account-icon" aria-hidden="true">▤</span><div><span id="bank-balance-label">Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div></div>
             <div class="account-summary paypal-account"><span class="account-icon" aria-hidden="true">↗</span><div><span id="paypal-balance-label">PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div></div>
           </div>
+          <aside id="contribution-alert" class="contribution-alert" aria-live="polite">
+            <p id="contribution-alert-message">Beitragsstatus wird geladen …</p>
+            <button class="button button-secondary button-edit" type="button" data-finance-view="contributions">Beiträge anzeigen</button>
+          </aside>
           <section class="reconciliation-summary" aria-labelledby="reconciliation-summary-heading">
             <h3 id="reconciliation-summary-heading">Abgleich nach Konto · <span id="reconciliation-period"></span></h3>
             <p class="analytics-caption">Anzahl und Bruttosumme der Buchungen; unabhängig von den übrigen Filtern.</p>
@@ -49,6 +61,8 @@
             </div>
           </section>
           <p class="finance-explanation">Die Verwaltung beginnt am 01.10.2026. Bank- und PayPal-Salden enthalten den jeweiligen Startsaldo sowie alle Buchungen ab diesem Datum bis zum Ende des ausgewählten Zeitraums. Einnahmen, Ausgaben und Auswertungen beziehen sich auf den ausgewählten Zeitraum; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
+          </section>
+          <section id="finance-view-contributions" class="finance-view" aria-label="Quartalsbeiträge" tabindex="-1" hidden>
           <section class="contribution-section" aria-labelledby="contribution-heading">
             <div class="section-heading">
               <div><p class="eyebrow">Mannschaftskasse</p><h3 id="contribution-heading">Quartalsbeiträge</h3></div>
@@ -56,7 +70,7 @@
             </div>
             <div id="contribution-summary" class="contribution-summary" role="status" aria-live="polite">Beitragsübersicht wird geladen …</div>
             <p class="contribution-deadline-note">Beiträge sind bis zum 15. des ersten Quartalsmonats fällig. Offene Beiträge sind bis dahin orange markiert, danach rot.</p>
-            <div class="table-scroll">
+            <div id="contribution-table-scroll" class="table-scroll" tabindex="-1">
               <table class="contribution-table">
                 <caption>Beitragsstatus pro Mitglied und Quartal</caption>
                 <thead><tr><th>Mitglied</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Status</th><th data-admin-only hidden>Mitglied verwalten</th></tr></thead>
@@ -98,6 +112,9 @@
             </details>
             <p id="contribution-error" class="status status-error" role="alert" hidden></p>
           </section>
+          </section>
+          <section id="finance-view-bookings" class="finance-view" aria-label="Buchungen" tabindex="-1" hidden>
+          <div class="bookings-heading"><h3>Auswertungen</h3></div>
           <div class="analytics-grid">
             <section class="analytics-card" aria-labelledby="monthly-heading">
               <h3 id="monthly-heading">Monatsübersicht</h3>
@@ -119,6 +136,7 @@
               </details>
             </section>
           </div>
+          <div class="bookings-heading"><h3>Buchungen</h3></div>
           <div class="finance-toolbar">
             <div class="filter-controls">
               <fieldset class="filter-group period-filter-group">
@@ -187,6 +205,7 @@
             <span id="page-status" class="muted"></span>
             <button id="next-page" class="button button-secondary" type="button" disabled>Weiter →</button>
           </div>
+          </section>
           <p id="finance-status" class="status" role="status" aria-live="polite"></p>
           <div class="setup-status" aria-label="Supabase-Einrichtungsdiagnose">
             <p id="database-setup-status" role="status">Datenbankzugriff: wird geprüft …</p>

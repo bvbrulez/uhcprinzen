@@ -13,6 +13,9 @@ Jedes Mitglied meldet sich mit einem persönlichen Supabase-Konto an. Die
 Finanzdaten sind nur nach der Anmeldung sichtbar. Die Übersicht zeigt den
 Gesamtsaldo sowie die Bank- und PayPal-Salden, Einnahmen, Ausgaben und
 Auswertungen für den ausgewählten Zeitraum.
+Die Bereiche Übersicht, Beiträge und Buchungen lassen sich über eine kompakte
+Navigation direkt öffnen. Offene und überfällige Beiträge des gewählten
+Beitragsjahres werden dort hervorgehoben und sind direkt erreichbar.
 
 ### Buchungen und Auswertungen
 
@@ -162,6 +165,8 @@ Umgebungsvariablen werden die passenden E2E-Tests übersprungen.
 
 - `src/index.html` – Seitenstruktur und Dialoge
 - `src/scripts/app.js` – Benutzeroberfläche und Ereignissteuerung
+- `src/scripts/transaction-view.mjs` – Buchungstabelle, Finanzkennzahlen und Auswertungen
+- `src/scripts/csv-import-controller.mjs` – CSV-Importdialog, Mapping, Prüfung und Vorschau
 - `src/scripts/auth-service.mjs` – Supabase-Authentifizierung und Sitzungszugriff
 - `src/scripts/transaction-service.mjs` – Buchungs-, Kategorien-, Export- und Verlaufszugriffe
 - `src/scripts/recurring-service.mjs` – Laden und Verwalten von Wiederholungsbuchungen

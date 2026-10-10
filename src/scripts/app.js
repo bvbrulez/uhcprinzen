@@ -12,17 +12,11 @@ import { createAuthService } from "./auth-service.mjs";
 import { createRecurringService } from "./recurring-service.mjs";
 import { createTransactionService } from "./transaction-service.mjs";
 import { createLatestRequestGate } from "./latest-request.mjs";
+import { createTransactionView } from "./transaction-view.mjs";
+import { createCsvImportController } from "./csv-import-controller.mjs";
 import {
   buildCsvText,
-  csvDuplicateKey,
   exportColumnOptions,
-  csvFields,
-  csvProfileAliases,
-  normalizeHeader,
-  parseCsv,
-  parseCsvAmount,
-  parseCsvDate,
-  parseCsvType,
 } from "./csv-rules.mjs";
 
 const config = window.SUPABASE_CONFIG;
@@ -36,7 +30,6 @@ const loginDialog = document.querySelector("#login-dialog");
 const transactionDialog = document.querySelector("#transaction-dialog");
 const passwordResetDialog = document.querySelector("#password-reset-dialog");
 const categoryDialog = document.querySelector("#category-dialog");
-const csvImportDialog = document.querySelector("#csv-import-dialog");
 const recurringDialog = document.querySelector("#recurring-dialog");
 const auditDialog = document.querySelector("#audit-dialog");
 const authState = document.querySelector("#auth-state");
@@ -79,21 +72,7 @@ const activeFilters = document.querySelector("#active-filters");
 const databaseSetupStatus = document.querySelector("#database-setup-status");
 const reportSetupStatus = document.querySelector("#report-setup-status");
 const writeSetupStatus = document.querySelector("#write-setup-status");
-const monthlySummary = document.querySelector("#monthly-summary");
-const categorySummary = document.querySelector("#category-summary");
-const monthlyData = document.querySelector("#monthly-data");
-const categoryData = document.querySelector("#category-data");
 const showDeleted = document.querySelector("#show-deleted");
-const csvImportForm = document.querySelector("#csv-import-form");
-const csvFile = document.querySelector("#csv-file");
-const csvColumnMapping = document.querySelector("#csv-column-mapping");
-const csvPreview = document.querySelector("#csv-preview");
-const csvPreviewPrevious = document.querySelector("#csv-preview-previous");
-const csvPreviewNext = document.querySelector("#csv-preview-next");
-const csvPreviewPageStatus = document.querySelector("#csv-preview-page-status");
-const csvImportStatus = document.querySelector("#csv-import-status");
-const csvImportSubmit = document.querySelector("#csv-import-submit");
-const csvProfile = document.querySelector("#csv-profile");
 const recurringForm = document.querySelector("#recurring-form");
 const recurringList = document.querySelector("#recurring-list");
 const recurringStatus = document.querySelector("#recurring-status");
@@ -107,6 +86,9 @@ const auditStatus = document.querySelector("#audit-status");
 const contributionYear = document.querySelector("#contribution-year");
 const contributionSummary = document.querySelector("#contribution-summary");
 const contributionList = document.querySelector("#contribution-list");
+const contributionNavCount = document.querySelector("#contribution-nav-count");
+const contributionAlert = document.querySelector("#contribution-alert");
+const contributionAlertMessage = document.querySelector("#contribution-alert-message");
 const contributionError = document.querySelector("#contribution-error");
 const contributionAmount = document.querySelector("#contribution-amount");
 const bankOpeningBalanceInput = document.querySelector("#bank-opening-balance");
@@ -127,17 +109,10 @@ const pageSize = 50;
 let totalPages = 0;
 let editingTransaction = null;
 let searchTimer = null;
-let csvHeaders = [];
-let csvRecords = [];
-let csvPreparedRows = [];
-let csvPreviewPage = 0;
-let csvClassificationRequestId = 0;
 let recurringEditId = null;
 let selectedTransactionIds = new Set();
 const savedFiltersKey = "uhc-prinzen-saved-filters";
 const csvColumnsKey = "uhc-prinzen-csv-columns";
-const csvPreviewPageSize = 50;
-const csvMaxFileBytes = 5 * 1024 * 1024;
 let savedFilters = [];
 let teamMembers = [];
 let contributionPayments = [];
@@ -160,10 +135,55 @@ const todayDate = () => {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 };
-const setText = (selector, value) => { document.querySelector(selector).textContent = value; };
-const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const transactionView = createTransactionView({ money, formatDate });
+const csvImportController = createCsvImportController({
+  transactionService,
+  loadCategories: loadTransactionCategories,
+  isAdministrator,
+  financeStartDate,
+  formatDate,
+  money,
+  refreshTransactions,
+  refreshContributions,
+});
 dateFromFilter.min = financeStartDate;
 dateToFilter.min = financeStartDate;
+
+function setFinanceView(view, focusContributions = false) {
+  document.querySelectorAll(".finance-section-tab").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.financeView === view));
+  });
+  document.querySelectorAll(".finance-view").forEach(panel => {
+    panel.hidden = panel.id !== `finance-view-${view}`;
+  });
+  if (focusContributions) {
+    const table = document.querySelector("#contribution-table-scroll");
+    table.scrollIntoView({ block: "start" });
+    table.focus({ preventScroll: true });
+    return;
+  }
+  const panel = document.querySelector(`#finance-view-${view}`);
+  panel.scrollIntoView({ block: "start" });
+  panel.focus({ preventScroll: true });
+}
+
+function renderContributionNavigation(year, openCount, overdueCount) {
+  const total = openCount + overdueCount;
+  const tab = document.querySelector('.finance-section-tab[data-finance-view="contributions"]');
+  contributionNavCount.textContent = String(total);
+  contributionNavCount.hidden = total === 0;
+  contributionNavCount.classList.toggle("finance-nav-count-overdue", overdueCount > 0);
+  contributionNavCount.classList.toggle("finance-nav-count-due", total > 0 && overdueCount === 0);
+  contributionAlert.classList.toggle("contribution-alert-due", total > 0 && overdueCount === 0);
+  contributionAlert.classList.toggle("contribution-alert-overdue", overdueCount > 0);
+  contributionAlertMessage.textContent = total
+    ? `Beitragsjahr ${year}: ${total} offene Beiträge, davon ${overdueCount} überfällig und ${openCount} noch innerhalb der Frist.`
+    : `Beitragsjahr ${year}: Keine Beiträge sind offen oder überfällig.`;
+  tab.setAttribute(
+    "aria-label",
+    `Beiträge, ${total} offen, davon ${overdueCount} überfällig, Beitragsjahr ${year}`,
+  );
+}
 
 function getEffectiveDateRange(year = yearFilter.value || String(new Date().getFullYear())) {
   return resolveDateRange(year, dateFromFilter.value, dateToFilter.value, todayDate());
@@ -204,6 +224,13 @@ function setAuthenticated(nextSession) {
     writeSetupStatus.textContent = "Schreibrechte: werden bei der ersten Änderung geprüft.";
     writeSetupStatus.className = "";
     setFinanceStatus("");
+    contributionNavCount.textContent = "";
+    contributionNavCount.hidden = true;
+    contributionNavCount.classList.remove("finance-nav-count-due", "finance-nav-count-overdue");
+    contributionAlertMessage.textContent = "Beitragsstatus wird geladen …";
+    contributionAlert.classList.remove("contribution-alert-due", "contribution-alert-overdue");
+    document.querySelector('.finance-section-tab[data-finance-view="contributions"]')
+      .setAttribute("aria-label", "Beiträge");
   }
   if (authenticated) {
     refreshTransactions();
@@ -730,6 +757,7 @@ function renderTeamContributions() {
       return metric;
     }),
   );
+  renderContributionNavigation(year, openCount, overdueCount);
   renderContributionRateQuarterOptions();
   contributionAmount.value = getQuarterlyContributionAmount(contributionRateQuarter.value).toFixed(2);
   bankOpeningBalanceInput.value = Number(bankOpeningBalance).toFixed(2);
@@ -747,6 +775,11 @@ async function refreshContributions() {
   loadingContributions = true;
   contributionError.hidden = true;
   contributionSummary.textContent = "Beitragsübersicht wird geladen …";
+  contributionNavCount.textContent = "";
+  contributionNavCount.hidden = true;
+  contributionNavCount.classList.remove("finance-nav-count-due", "finance-nav-count-overdue");
+  contributionAlertMessage.textContent = "Beitragsstatus wird geladen …";
+  contributionAlert.classList.remove("contribution-alert-due", "contribution-alert-overdue");
   try {
     const overview = await contributionService.loadOverview();
     teamMembers = overview.members;
@@ -761,6 +794,9 @@ async function refreshContributions() {
     if (isAdministrator()) await loadContributionIncomeTransactions(true);
   } catch (error) {
     contributionSummary.textContent = "Beitragsübersicht konnte nicht geladen werden.";
+    contributionAlertMessage.textContent = "Der Beitragsstatus ist derzeit nicht verfügbar.";
+    document.querySelector('.finance-section-tab[data-finance-view="contributions"]')
+      .setAttribute("aria-label", "Beiträge, Status derzeit nicht verfügbar");
     contributionError.textContent = `Beitragsdaten fehlen oder konnten nicht geladen werden: ${error.message} Bitte das aktuelle Delta-Skript supabase/schema.sql im Supabase SQL Editor ausführen und die RLS-Berechtigungen prüfen.`;
     contributionError.hidden = false;
   } finally {
@@ -899,380 +935,30 @@ async function refreshTransactions() {
 }
 
 function renderTransactions() {
-  const filtered = transactions;
-  const totals = transactionAnalytics?.totals || {};
-  const period = dateRangeLabel();
-  setText("#summary-period", `Kennzahlen für ${period}`);
-  const range = getEffectiveDateRange();
-  const accounts = transactionAnalytics?.accounts || {};
-  const bankBalance = Number(accounts.BANK || 0) + bankOpeningBalance;
-  const paypalBalance = Number(accounts.PAYPAL || 0) + paypalOpeningBalance;
-  document.querySelector("#bank-balance-label").textContent = `Bankkonto · Saldo zum ${formatDate(range.end)}`;
-  document.querySelector("#paypal-balance-label").textContent = `PayPal-Konto · Saldo zum ${formatDate(range.end)}`;
-  setText("#reconciliation-period", period);
-  const reconciliation = transactionAnalytics?.reconciliation || {};
-  for (const [account, prefix] of [["BANK", "bank"], ["PAYPAL", "paypal"]]) {
-    const values = reconciliation[account] || {};
-    setText(`#${prefix}-open-summary`, `${Number(values.open_count || 0)} · ${money(values.open_amount || 0)}`);
-    setText(`#${prefix}-reconciled-summary`, `${Number(values.reconciled_count || 0)} · ${money(values.reconciled_amount || 0)}`);
-  }
-  setText("#total-income", money(totals.income));
-  setText("#total-expenses", money(totals.expenses));
-  setText("#total-balance", money(bankBalance + paypalBalance));
-  setText("#bank-balance", money(bankBalance));
-  setText("#paypal-balance", money(paypalBalance));
-  renderAnalytics(transactionAnalytics);
-  transactionList.replaceChildren(...filtered.map(item => {
-    const row = document.createElement("tr");
-    row.classList.add(item.type === "INCOME" ? "income-transaction" : "expense-transaction");
-    row.innerHTML = "<td></td><td></td><td></td><td></td><td></td><td class=\"number\"></td><td></td><td></td><td></td><td></td>";
-    row.children[0].hidden = !isAdministrator() || Boolean(item.deleted_at) || Boolean(item.reconciled_at);
-    row.children[0].dataset.label = "Auswahl";
-    if (!row.children[0].hidden) {
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = selectedTransactionIds.has(item.id);
-      checkbox.dataset.transactionId = String(item.id);
-      checkbox.setAttribute("aria-label", `Buchung ${item.description} auswählen`);
-      checkbox.addEventListener("change", () => {
-        if (checkbox.checked) selectedTransactionIds.add(item.id);
-        else selectedTransactionIds.delete(item.id);
-        updateBulkReconcileControls();
-      });
-      row.children[0].append(checkbox);
-    }
-    row.children[1].dataset.label = "Datum";
-    row.children[2].dataset.label = "Konto";
-    row.children[3].dataset.label = "Beschreibung";
-    row.children[4].dataset.label = "Typ";
-    row.children[5].dataset.label = "Betrag";
-    row.children[6].dataset.label = "Kategorie";
-    row.children[7].dataset.label = "Abgleich";
-    row.children[8].dataset.label = "Geändert";
-    row.children[9].dataset.label = "Aktion";
-    row.children[1].textContent = formatDate(item.transaction_date);
-    row.children[2].className = `account-cell ${item.account === "PAYPAL" ? "account-cell-paypal" : "account-cell-bank"}`;
-    const accountIcon = document.createElement("span");
-    accountIcon.className = "account-row-icon";
-    accountIcon.setAttribute("aria-hidden", "true");
-    accountIcon.textContent = item.account === "PAYPAL" ? "↗" : "▤";
-    const accountName = document.createElement("span");
-    accountName.textContent = item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
-    row.children[2].append(accountIcon, accountName);
-    row.children[3].textContent = item.description;
-    row.children[4].textContent = item.type === "INCOME" ? "Einnahme" : "Ausgabe";
-    row.children[5].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
-    row.children[5].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
-    row.children[6].textContent = item.category;
-    row.children[7].textContent = item.reconciled_at
-      ? `Abgeglichen ${formatDate(item.reconciled_at.slice(0, 10))}${item.reconciled_by_email ? ` · ${item.reconciled_by_email}` : ""}`
-      : "Offen";
-    row.children[7].className = item.reconciled_at ? "reconciliation-done" : "reconciliation-open";
-    row.children[8].textContent = item.updated_by_email
-      ? `${formatDate(item.updated_at.slice(0, 10))} · ${item.updated_by_email}`
-      : `Erstellt ${formatDate(item.created_at.slice(0, 10))}${item.created_by_email ? ` · ${item.created_by_email}` : ""}`;
-    row.children[9].hidden = !isAdministrator();
-    row.children[9].classList.add("transaction-actions");
-    if (!isAdministrator()) return row;
-    if (item.deleted_at) {
-      row.classList.add("deleted-transaction");
-      row.children[3].textContent += " · gelöscht";
-      row.children[8].textContent = `Gelöscht ${formatDate(item.deleted_at.slice(0, 10))}${item.deleted_by_email ? ` · ${item.deleted_by_email}` : ""}`;
-      const restoreButton = document.createElement("button");
-      restoreButton.className = "button button-secondary button-edit";
-      restoreButton.type = "button";
-      restoreButton.textContent = "Wiederherstellen";
-      restoreButton.addEventListener("click", () => restoreTransaction(item));
-      row.children[9].append(restoreButton);
-    } else {
-      const reconcileButton = document.createElement("button");
-      reconcileButton.className = `button ${item.reconciled_at ? "button-secondary" : "button-reconcile"} button-edit`;
-      reconcileButton.type = "button";
-      reconcileButton.textContent = item.reconciled_at ? "Abgleich aufheben" : "Abgleichen";
-      reconcileButton.setAttribute("aria-pressed", String(Boolean(item.reconciled_at)));
-      reconcileButton.addEventListener("click", () => setTransactionReconciled(item));
-      row.children[9].append(reconcileButton);
-      const editButton = document.createElement("button");
-      editButton.className = "button button-secondary button-edit";
-      editButton.type = "button";
-      editButton.textContent = "Ändern";
-      editButton.addEventListener("click", () => openTransactionEditor(item));
-      row.children[9].append(editButton);
-      const deleteButton = document.createElement("button");
-      deleteButton.className = "button button-danger button-edit";
-      deleteButton.type = "button";
-      deleteButton.textContent = "Löschen";
-      deleteButton.addEventListener("click", () => deleteTransaction(item));
-      row.children[9].append(deleteButton);
-      const duplicateButton = document.createElement("button");
-      duplicateButton.className = "button button-secondary button-edit";
-      duplicateButton.type = "button";
-      duplicateButton.textContent = "Duplizieren";
-      duplicateButton.addEventListener("click", () => openTransactionEditor(item, true));
-      row.children[9].append(duplicateButton);
-    }
-    const auditButton = document.createElement("button");
-    auditButton.className = "button button-secondary button-edit";
-    auditButton.type = "button";
-    auditButton.textContent = "Verlauf";
-    auditButton.addEventListener("click", () => openTransactionAudit(item));
-    row.children[9].append(auditButton);
-    return row;
-  }));
-  if (!filtered.length) transactionList.innerHTML = '<tr><td colspan="10" class="muted">Keine Buchungen für den gewählten Zeitraum und Filter.</td></tr>';
-  updateBulkReconcileControls();
-}
-
-function renderAnalytics(analytics) {
-  const months = (analytics?.months || []).map(item => ({
-    name: `${monthNames[Number(item.month)]} ${item.year}`,
-    income: item.income || 0,
-    expenses: item.expenses || 0,
-  }));
-  const maxAmount = Math.max(1, ...months.flatMap(item => [item.income, item.expenses]));
-  monthlySummary.replaceChildren(...(months.length ? months : [null]).map(item => {
-    if (!item) {
-      const empty = document.createElement("p");
-      empty.className = "muted";
-      empty.textContent = "Keine Monatswerte im gewählten Zeitraum.";
-      return empty;
-    }
-    const row = document.createElement("div");
-    row.className = "month-row";
-    const label = document.createElement("span");
-    label.className = "month-label";
-    label.textContent = item.name;
-    const bars = document.createElement("div");
-    bars.className = "month-bars";
-    bars.setAttribute("aria-hidden", "true");
-    for (const [type, amount] of [["income", item.income], ["expense", item.expenses]]) {
-      const track = document.createElement("span");
-      track.className = `month-track ${type}-track`;
-      const fill = document.createElement("i");
-      fill.style.width = `${Number(amount) / maxAmount * 100}%`;
-      track.append(fill);
-      bars.append(track);
-    }
-    const balance = document.createElement("small");
-    balance.textContent = money(Number(item.income) - Number(item.expenses));
-    balance.title = "Monatssaldo";
-    balance.className = Number(item.income) >= Number(item.expenses) ? "month-balance-positive" : "month-balance-negative";
-    const values = document.createElement("div");
-    values.className = "month-values";
-    values.innerHTML = `<span class="income-value">Einnahmen ${escapeHtml(money(item.income))}</span><span class="expense-value">Ausgaben ${escapeHtml(money(item.expenses))}</span>`;
-    row.append(label, bars, values, balance);
-    return row;
-  }));
-  monthlyData.replaceChildren(...(months.length ? months : [null]).map(item => {
-    if (!item) {
-      const row = document.createElement("tr");
-      const cell = document.createElement("td");
-      cell.colSpan = 4;
-      cell.textContent = "Keine Monatswerte im gewählten Zeitraum.";
-      row.append(cell);
-      return row;
-    }
-    const row = document.createElement("tr");
-    const values = [item.name, money(item.income), money(item.expenses), money(Number(item.income) - Number(item.expenses))];
-    values.forEach((value, index) => {
-      const cell = document.createElement(index === 0 ? "th" : "td");
-      if (index === 0) cell.scope = "row";
-      else cell.className = "number";
-      cell.textContent = value;
-      row.append(cell);
-    });
-    return row;
-  }));
-
-  const categoryEntries = analytics?.categories || [];
-  const maxCategory = Math.max(1, ...categoryEntries.map(([, amount]) => amount));
-  categorySummary.replaceChildren(...(categoryEntries.length ? categoryEntries : [null]).map(entry => {
-    if (!entry) {
-      const empty = document.createElement("p");
-      empty.className = "analytics-empty";
-      empty.textContent = "Keine Ausgaben im gewählten Zeitraum.";
-      return empty;
-    }
-    const [category, amount] = entry;
-    const row = document.createElement("div");
-    row.className = "category-row";
-    const label = document.createElement("span");
-    label.textContent = category;
-    const bar = document.createElement("div");
-    bar.className = "category-bar";
-    bar.setAttribute("aria-hidden", "true");
-    const fill = document.createElement("i");
-    fill.style.width = `${Number(amount) / maxCategory * 100}%`;
-    bar.append(fill);
-    const total = document.createElement("strong");
-    total.textContent = money(amount);
-    const share = document.createElement("small");
-    share.className = "category-share";
-    share.textContent = `${Math.round(Number(amount) / maxCategory * 100)} %`;
-    row.append(label, bar, total, share);
-    return row;
-  }));
-  categoryData.replaceChildren(...(categoryEntries.length ? categoryEntries : [null]).map(entry => {
-    const row = document.createElement("tr");
-    if (!entry) {
-      const cell = document.createElement("td");
-      cell.colSpan = 2;
-      cell.textContent = "Keine Ausgaben im gewählten Zeitraum.";
-      row.append(cell);
-      return row;
-    }
-    const [category, amount] = entry;
-    const label = document.createElement("th");
-    label.scope = "row";
-    label.textContent = category;
-    const value = document.createElement("td");
-    value.className = "number";
-    value.textContent = money(amount);
-    row.append(label, value);
-    return row;
-  }));
+  transactionView.renderTransactions({
+    transactions,
+    analytics: transactionAnalytics,
+    period: dateRangeLabel(),
+    range: getEffectiveDateRange(),
+    bankOpeningBalance,
+    paypalOpeningBalance,
+    selectedTransactionIds,
+    isAdministrator: isAdministrator(),
+    callbacks: {
+      updateBulkControls: updateBulkReconcileControls,
+      restore: restoreTransaction,
+      toggleReconciled: setTransactionReconciled,
+      edit: openTransactionEditor,
+      delete: deleteTransaction,
+      duplicate: transaction => openTransactionEditor(transaction, true),
+      audit: openTransactionAudit,
+    },
+  });
 }
 
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
 }[character]));
-
-function renderCsvMapping() {
-  csvColumnMapping.replaceChildren(...csvFields.map(field => {
-    const label = document.createElement("label");
-    label.textContent = `${field.title}${field.required ? " (erforderlich)" : ""}`;
-    const select = document.createElement("select");
-    select.dataset.csvField = field.key;
-    select.setAttribute("aria-label", `${field.title} in der CSV`);
-    select.add(new Option("Nicht zugeordnet", ""));
-    csvHeaders.forEach((header, index) => select.add(new Option(header || `Spalte ${index + 1}`, String(index))));
-    const profile = csvProfileAliases[csvProfile.value] || {};
-    const aliases = [...(profile[field.key] || []), ...field.aliases];
-    const match = csvHeaders.findIndex(header => aliases.includes(normalizeHeader(header)));
-    if (match >= 0) select.value = String(match);
-    label.append(select);
-    return label;
-  }));
-  csvColumnMapping.querySelectorAll("select").forEach(select => select.addEventListener("change", () => {
-    classifyCsvRows().catch(error => {
-      csvImportSubmit.disabled = true;
-      csvImportStatus.textContent = `CSV-Vorschau konnte nicht aktualisiert werden: ${error.message}`;
-    });
-  }));
-}
-
-function getCsvMappedValue(record, field) {
-  const selected = csvColumnMapping.querySelector(`[data-csv-field="${field}"]`)?.value;
-  return selected === "" || selected === undefined ? "" : record[Number(selected)]?.trim() || "";
-}
-
-async function classifyCsvRows() {
-  if (!csvRecords.length) return;
-  const requestId = ++csvClassificationRequestId;
-  try {
-    const categories = await loadTransactionCategories();
-    if (requestId !== csvClassificationRequestId) return;
-    const seen = new Set();
-    csvPreparedRows = csvRecords.map((record, index) => {
-      const date = parseCsvDate(getCsvMappedValue(record, "date"));
-      const explicitType = parseCsvType(getCsvMappedValue(record, "type"));
-      const description = getCsvMappedValue(record, "description");
-      const rawAmount = getCsvMappedValue(record, "amount");
-      const debitValue = getCsvMappedValue(record, "debit");
-      const creditValue = getCsvMappedValue(record, "credit");
-      const debit = debitValue ? parseCsvAmount(debitValue) : null;
-      const credit = creditValue ? parseCsvAmount(creditValue) : null;
-      const bothColumnsFilled = Boolean(debit?.amount && credit?.amount);
-      const parsedAmount = bothColumnsFilled ? null
-        : credit?.amount ? { amount: credit.amount, sign: 1 }
-          : debit?.amount ? { amount: debit.amount, sign: -1 }
-            : rawAmount ? parseCsvAmount(rawAmount) : null;
-      const type = explicitType || (parsedAmount?.sign < 0 ? "EXPENSE" : parsedAmount?.sign > 0 ? "INCOME" : null);
-      const amount = parsedAmount?.amount;
-      const accountText = normalizeHeader(getCsvMappedValue(record, "account"));
-      const account = !accountText
-        ? csvProfile.value === "paypal" ? "PAYPAL" : "BANK"
-        : ["bank", "bankkonto", "girokonto"].includes(accountText) ? "BANK"
-        : ["paypal", "paypalkonto"].includes(accountText) ? "PAYPAL" : null;
-      const category = getCsvMappedValue(record, "category") || "Sonstiges";
-      const error = !date ? "Datum ungültig"
-        : date < financeStartDate ? `Buchungen vor dem ${formatDate(financeStartDate)} liegen außerhalb der Verwaltung`
-        : bothColumnsFilled ? "Soll und Haben sind beide befüllt"
-          : !type ? "Buchungsart ungültig"
-          : !description ? "Beschreibung fehlt"
-            : !parsedAmount ? "Betrag ungültig"
-              : !account ? "Konto nicht erkannt"
-                : description.length > 120 ? "Beschreibung zu lang"
-                  : !categories.includes(category) ? `Kategorie „${category}“ existiert nicht` : "";
-      const transaction = { transaction_date: date, type, account, description, amount, category };
-      const key = error ? "" : csvDuplicateKey(transaction);
-      const duplicateInFile = key && seen.has(key);
-      if (key) seen.add(key);
-      return { line: index + 2, transaction, error, key, duplicateInFile, duplicateInDatabase: false };
-    });
-    const preparedRows = csvPreparedRows;
-    await detectCsvDuplicates(preparedRows, requestId);
-    if (requestId !== csvClassificationRequestId) return;
-    renderCsvPreview();
-  } catch (error) {
-    if (requestId === csvClassificationRequestId) throw error;
-  }
-}
-
-async function detectCsvDuplicates(rows, requestId) {
-  const dates = [...new Set(rows.filter(row => !row.error).map(row => row.transaction.transaction_date))];
-  if (!dates.length) return;
-  const existing = new Set();
-  const existingRows = await transactionService.loadRowsForDates(dates);
-  if (requestId !== csvClassificationRequestId) return;
-  existingRows.forEach(item => existing.add(csvDuplicateKey(item)));
-  rows.forEach(row => {
-    row.duplicateInDatabase = Boolean(row.key && existing.has(row.key));
-  });
-}
-
-function renderCsvPreview() {
-  const labels = ["Zeile", "Datum", "Art", "Konto", "Beschreibung", "Betrag", "Kategorie", "Prüfung"];
-  const pageCount = Math.max(1, Math.ceil(csvPreparedRows.length / csvPreviewPageSize));
-  csvPreviewPage = Math.min(csvPreviewPage, pageCount - 1);
-  const start = csvPreviewPage * csvPreviewPageSize;
-  const pageRows = csvPreparedRows.slice(start, start + csvPreviewPageSize);
-  csvPreview.replaceChildren(...pageRows.map(row => {
-    const tr = document.createElement("tr");
-    const values = [
-      row.line,
-      row.transaction.transaction_date || "–",
-      row.transaction.type === "INCOME" ? "Einnahme" : row.transaction.type === "EXPENSE" ? "Ausgabe" : "–",
-      row.transaction.account === "PAYPAL" ? "PayPal" : row.transaction.account === "BANK" ? "Bank" : "–",
-      row.transaction.description || "–",
-      row.transaction.amount ? money(row.transaction.amount) : "–",
-      row.transaction.category || "Sonstiges",
-    ];
-    values.forEach((value, index) => {
-      const cell = document.createElement("td");
-      cell.textContent = String(value);
-      cell.dataset.label = labels[index];
-      tr.append(cell);
-    });
-    const check = document.createElement("td");
-    check.dataset.label = labels[7];
-    check.textContent = row.error || row.duplicateInFile || row.duplicateInDatabase
-      ? row.error || (row.duplicateInFile ? "Doppelt in Datei" : "Bereits vorhanden")
-      : "Wird importiert";
-    tr.classList.toggle("csv-row-error", Boolean(row.error || row.duplicateInFile || row.duplicateInDatabase));
-    tr.append(check);
-    return tr;
-  }));
-  const importable = csvPreparedRows.filter(row => !row.error && !row.duplicateInFile && !row.duplicateInDatabase).length;
-  const skipped = csvPreparedRows.length - importable;
-  csvImportSubmit.disabled = !isAdministrator() || importable === 0;
-  csvPreviewPrevious.disabled = csvPreviewPage === 0;
-  csvPreviewNext.disabled = csvPreviewPage >= pageCount - 1;
-  csvPreviewPageStatus.textContent = csvPreparedRows.length
-    ? `Vorschau ${start + 1}–${Math.min(start + pageRows.length, csvPreparedRows.length)} von ${csvPreparedRows.length} · Seite ${csvPreviewPage + 1} von ${pageCount}`
-    : "Keine Vorschau vorhanden.";
-  csvImportStatus.textContent = `${importable} importierbar · ${skipped} fehlerhaft oder doppelt übersprungen.`;
-}
 
 async function setTransactionReconciled(transaction) {
   if (!isAdministrator() || transaction.deleted_at) return;
@@ -1310,38 +996,6 @@ async function reconcileSelectedTransactions() {
   } finally {
     updateBulkReconcileControls();
   }
-}
-
-async function openCsvImport() {
-  if (!isAdministrator()) return;
-  csvClassificationRequestId += 1;
-  csvImportForm.reset();
-  csvColumnMapping.replaceChildren();
-  csvPreview.replaceChildren();
-  csvPreparedRows = [];
-  csvRecords = [];
-  csvHeaders = [];
-  csvPreviewPage = 0;
-  csvPreviewPrevious.disabled = true;
-  csvPreviewNext.disabled = true;
-  csvPreviewPageStatus.textContent = "Keine Vorschau vorhanden.";
-  csvImportSubmit.disabled = true;
-  csvImportStatus.textContent = "";
-  csvImportDialog.showModal();
-}
-
-function downloadCsvExample() {
-  const sample = [
-    "Datum;Beschreibung;Soll;Haben;Konto;Kategorie",
-    "2026-10-15;Monatsbeitrag;;25,00;Bankkonto;Prinzenkröten",
-    "2026-10-20;Platzmiete;120,00;;Bankkonto;Platzmiete",
-  ].join("\r\n");
-  const url = URL.createObjectURL(new Blob(["\uFEFF", sample], { type: "text/csv;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "uhc-prinzen-csv-beispiel.csv";
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function loadRecurringTransactions() {
@@ -1675,78 +1329,14 @@ document.querySelector("#manage-categories").addEventListener("click", async () 
     categoryDialog.showModal();
   }
 });
-document.querySelector("#import-transactions").addEventListener("click", openCsvImport);
-document.querySelector("#download-csv-example").addEventListener("click", downloadCsvExample);
-csvProfile.addEventListener("change", () => {
-  if (!csvHeaders.length) return;
-  renderCsvMapping();
-  classifyCsvRows().catch(error => {
-    csvImportSubmit.disabled = true;
-    csvImportStatus.textContent = `CSV-Vorschau konnte nicht aktualisiert werden: ${error.message}`;
+document.querySelectorAll("[data-finance-view]").forEach(button => {
+  button.addEventListener("click", () => {
+    const view = button.dataset.financeView;
+    setFinanceView(view, view === "contributions");
   });
 });
-csvFile.addEventListener("change", async () => {
-  const requestId = ++csvClassificationRequestId;
-  csvImportSubmit.disabled = true;
-  csvImportStatus.textContent = "";
-  csvPreview.replaceChildren();
-  csvColumnMapping.replaceChildren();
-  csvPreparedRows = [];
-  csvRecords = [];
-  csvHeaders = [];
-  csvPreviewPage = 0;
-  csvPreviewPrevious.disabled = true;
-  csvPreviewNext.disabled = true;
-  csvPreviewPageStatus.textContent = "Keine Vorschau vorhanden.";
-  try {
-    const file = csvFile.files?.[0];
-    if (!file) return;
-    if (file.size > csvMaxFileBytes) {
-      throw new Error(`Die Datei ist größer als das Limit von ${Math.round(csvMaxFileBytes / 1024 / 1024)} MB.`);
-    }
-    const text = await file.text();
-    if (requestId !== csvClassificationRequestId) return;
-    const rows = parseCsv(text.replace(/^\uFEFF/, ""));
-    if (rows.length - 1 > 500) throw new Error("Pro Import sind höchstens 500 Datenzeilen erlaubt.");
-    csvHeaders = rows[0].map(value => value.trim());
-    csvRecords = rows.slice(1);
-    renderCsvMapping();
-    await classifyCsvRows();
-  } catch (error) {
-    csvImportStatus.textContent = `CSV konnte nicht vorbereitet werden: ${error.message}`;
-  }
-});
-csvPreviewPrevious.addEventListener("click", () => {
-  if (csvPreviewPage === 0) return;
-  csvPreviewPage -= 1;
-  renderCsvPreview();
-});
-csvPreviewNext.addEventListener("click", () => {
-  const lastPage = Math.max(0, Math.ceil(csvPreparedRows.length / csvPreviewPageSize) - 1);
-  if (csvPreviewPage >= lastPage) return;
-  csvPreviewPage += 1;
-  renderCsvPreview();
-});
-csvImportForm.addEventListener("submit", async event => {
-  event.preventDefault();
-  if (!isAdministrator()) return;
-  const rows = csvPreparedRows.filter(row => !row.error && !row.duplicateInFile && !row.duplicateInDatabase);
-  if (!rows.length) return;
-  csvImportSubmit.disabled = true;
-  csvImportStatus.textContent = `${rows.length} Buchungen werden importiert …`;
-  try {
-    await transactionService.importMany(rows.map(row => row.transaction));
-    rows.forEach(row => { row.duplicateInDatabase = true; });
-    renderCsvPreview();
-    csvImportStatus.textContent = `${rows.length} Buchungen importiert; ${csvPreparedRows.length - rows.length} fehlerhafte oder doppelte Zeilen übersprungen.`;
-    await refreshTransactions();
-    await refreshContributions();
-  } catch (error) {
-    csvImportStatus.textContent = `Import fehlgeschlagen; es wurden keine Buchungen übernommen: ${error.message}`;
-  } finally {
-    csvImportSubmit.disabled = csvPreparedRows.every(row => row.error || row.duplicateInFile || row.duplicateInDatabase);
-  }
-});
+document.querySelector("#import-transactions").addEventListener("click", csvImportController.open);
+document.querySelector("#download-csv-example").addEventListener("click", csvImportController.downloadExample);
 document.querySelector("#manage-recurring").addEventListener("click", async () => {
   if (!isAdministrator()) return;
   recurringStatus.textContent = "";

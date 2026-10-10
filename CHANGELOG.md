@@ -7,6 +7,29 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 - Aktualisiert am 2026-10-10:
 - `M – .github/copilot-instructions.md`
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `A – src/scripts/csv-import-controller.mjs`
+- `A – src/scripts/transaction-view.mjs`
+- `M – src/styles/components.css`
+- `M – tests/e2e/access-control.spec.mjs`
+- `M – tests/e2e/contribution-workflows.spec.mjs`
+
+### Finanzbereiche und App-Module strukturiert
+
+- Finanzseite in die Bereiche Übersicht, Beiträge und Buchungen gegliedert;
+  offene und überfällige Beiträge werden in der Navigation gezählt und in der
+  Übersicht hervorgehoben.
+- Buchungsansicht und CSV-Import in eigene Module ausgelagert und die
+  Navigation sowie direkten Wege zur Beitragstabelle mit Playwright ergänzt.
+- README und Copilot-Projektanweisungen zur aktualisierten Modulstruktur
+  überarbeitet.
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-10:
+- `M – .github/copilot-instructions.md`
 - `M – .github/workflows/conventional-commits.yml`
 - `M – .github/workflows/pages.yml`
 - `A – .github/workflows/tests.yml`

@@ -26,6 +26,7 @@ test("admin can search and load income pages beyond the first 100 records", asyn
     "Set E2E_EXPECT_OLDER_INCOME=1 after seeding at least 101 income rows in the local test database.",
   );
   await signInAsAdmin(page);
+  await page.locator('.finance-section-tab[data-finance-view="contributions"]').click();
   await page.locator("details.contribution-admin > summary").click();
   const loadMore = page.locator("#contribution-payment-load-more");
   await expect(loadMore).toBeEnabled();
@@ -36,6 +37,7 @@ test("admin can search and load income pages beyond the first 100 records", asyn
 
 test("admin can preview a CSV without importing it", async ({ page }) => {
   await signInAsAdmin(page);
+  await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
   await page.locator("#import-transactions").click();
   await page.locator("#csv-file").setInputFiles(resolve(fixture));
   await expect(page.locator("#csv-preview")).toContainText("E2E Vorschau ohne Import");
@@ -45,6 +47,7 @@ test("admin can preview a CSV without importing it", async ({ page }) => {
 
 test("CSV preview pages through rows and rejects files over the size limit", async ({ page }) => {
   await signInAsAdmin(page);
+  await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
   await page.locator("#import-transactions").click();
   const rows = Array.from({ length: 51 }, (_, index) =>
     `2026-10-01;E2E Vorschauzeile ${String(index + 1).padStart(3, "0")};;25,00;Bankkonto;Prinzenkröten`);
@@ -82,6 +85,7 @@ test("admin can assign an income to a member and consecutive quarters", async ({
     "Set payment fixture variables for a disposable local test member and matching income.",
   );
   await signInAsAdmin(page);
+  await page.locator('.finance-section-tab[data-finance-view="contributions"]').click();
   await page.locator("details.contribution-admin > summary").click();
 
   const memberSelect = page.locator("#contribution-payment-member");
