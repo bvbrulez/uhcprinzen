@@ -6,6 +6,14 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-10:
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-10:
 - `M – .github/copilot-instructions.md`
 - `M – README.md`
 - `M – src/index.html`
@@ -28,6 +36,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
   Kennzahlen, Beitragsverwaltung und Buchungsliste verbessert; die
   Gesamtsaldokarte an die Höhe der übrigen Kennzahlenkarten angeglichen.
 - README und repository-spezifische Copilot-Anweisungen aktualisiert.
+- Beitragsfrist auf den 15. des ersten Quartalsmonats festgelegt; offene
+  Beiträge sind bis einschließlich Frist orange und danach rot markiert.
+- README gekürzt, in fachliche und Developer-Anleitung gegliedert und mit
+  Mermaid-Diagrammen zu Buchungen, Beitragsstatus und Architektur ergänzt.
+- Gesamtsaldo-Karte auf dieselbe Höhe wie Einnahmen- und Ausgabenkarten gebracht.
 
 ## 2026-10-02
 ### Änderungen aus diesem Commit

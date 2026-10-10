@@ -1,198 +1,144 @@
-# UHC Prinzen
+# UHC Prinzen – Mannschaftskasse
 
-Statische Frontend-Anwendung für die Wesselbleker Prinzen, aufgebaut wie die
-Referenzanwendung `balkonkraftwerk`. Die Seite benötigt keinen eigenen Server:
-öffentliche Inhalte und die Mannschaftskasse werden direkt aus Supabase geladen.
+Die Anwendung verwaltet die Mannschaftskasse der Wesselbleker Prinzen. Sie
+zeigt Bank- und PayPal-Salden, Einnahmen und Ausgaben sowie den Zahlungsstatus
+der Quartalsbeiträge. Mitglieder sehen die Finanzübersicht nach der Anmeldung;
+Administratoren verwalten Buchungen, Beiträge und Einstellungen.
 
-## Lokal starten
+## Fachliche Anleitung
 
-Die Anwendung kann mit jedem statischen HTTP-Server gestartet werden, zum Beispiel:
+### Anmelden und Überblick
+
+Jedes Mitglied meldet sich mit einem persönlichen Supabase-Konto an. Die
+Finanzdaten sind nur nach der Anmeldung sichtbar. Die Übersicht zeigt den
+Gesamtsaldo sowie die Bank- und PayPal-Salden, Einnahmen, Ausgaben und
+Auswertungen für den ausgewählten Zeitraum.
+
+### Buchungen und Auswertungen
+
+Administratoren können Einnahmen und Ausgaben erfassen, ändern, löschen oder
+gelöschte Buchungen wiederherstellen. Buchungen lassen sich nach Zeitraum,
+Konto, Text, Buchungsart und Abgleichstatus filtern. Gespeicherte Filter bleiben
+im jeweiligen Browser erhalten.
+
+CSV-Dateien können vor dem Import geprüft und angepasst werden; PDF- und
+CSV-Exporte verwenden die aktiven Filter. Exporte sind auf 5.000 Buchungen
+begrenzt. Buchungen können nach dem Abgleich mit dem Kontoauszug einzeln oder
+gesammelt als abgeglichen markiert werden. Wiederholungsbuchungen werden als
+Vorlagen gepflegt und nur nach manueller Bestätigung erzeugt.
+
+```mermaid
+flowchart LR
+    M[Mitglied] --> V[Finanzübersicht ansehen]
+    A[Administrator] --> B[Buchungen verwalten]
+    A --> I[CSV importieren]
+    A --> W[Wiederholungen pflegen]
+    B --> F[Filtern und auswerten]
+    I --> F
+    W --> B
+    F --> E[PDF oder CSV exportieren]
+    B --> K[Mit Kontoauszug abgleichen]
+```
+
+### Quartalsbeiträge
+
+Die Kassenverwaltung beginnt am **01.10.2026**. Administratoren tragen den
+Bank- und PayPal-Startsaldo zu diesem Datum ein. Frühere Buchungen werden nicht
+in die Verwaltung übernommen.
+
+Die Beitragsübersicht zeigt den Status jedes Mitglieds ab Q4 2026. Der Beitrag
+ist bis einschließlich **15. des ersten Monats im Quartal** fällig: Offene
+Beiträge sind bis zu diesem Datum orange, ab dem 16. rot und überfällig.
+Beiträge künftiger Quartale sind als noch nicht fällig gekennzeichnet.
+
+Administratoren verwalten die Mitgliederliste und können Beitragssätze ab einem
+Quartal festlegen. Ein Satz gilt ab seinem Wirksamkeitsquartal bis zum nächsten
+Satz. Eine Einnahmebuchung kann einem Mitglied und einem oder mehreren
+aufeinanderfolgenden Quartalen zugeordnet werden. Der Buchungsbetrag muss der
+Summe der in diesen Quartalen gültigen Beitragssätze entsprechen; gespeicherte
+Zuordnungen behalten ihre ursprünglichen Quartalsbeträge. Korrekturen erfolgen
+durch Aufheben der gesamten Zuordnung, nicht durch Ändern der Zahlung.
+
+```mermaid
+flowchart TD
+    S[Quartalsbeginn] --> D{Zahlung zugeordnet?}
+    D -- Ja --> P[Bezahlt]
+    D -- Nein --> Q{Quartal bereits begonnen?}
+    Q -- Nein --> Z[Noch nicht fällig]
+    Q -- Ja --> T{Heute am oder vor dem 15.?}
+    T -- Ja --> O[Offen · orange]
+    T -- Nein --> U[Überfällig · rot]
+    A[Admin: Beitragssatz ab Quartal festlegen] --> R[Satz gilt bis zum nächsten Satz]
+    R --> C[Zuordnung prüft Summe der Quartalssätze]
+    C --> P
+```
+
+## Developer-Anleitung
+
+### Lokal starten
+
+Die Anwendung ist statisch und benötigt keinen Build-Schritt oder eigenen
+Anwendungsserver. Zum lokalen Ausführen genügt ein statischer HTTP-Server:
 
 ```sh
 python3 -m http.server 8080 --directory src
 ```
 
-Danach ist die Seite unter <http://localhost:8080> erreichbar. Ohne
-Supabase-Konfiguration bleibt die Finanzübersicht deaktiviert.
+Anschließend <http://localhost:8080> öffnen. Es gibt kein `package.json` und
+keine projektweite Test-Suite. Für eine schnelle Prüfung:
 
-## Supabase einrichten
+```sh
+node --check src/scripts/app.js
+git diff --check
+```
 
-1. Das konfigurierte Projekt ist `boymeoxuwnhountijfml.supabase.co`.
-2. Falls ein anderes Supabase-Projekt verwendet werden soll, die Projekt-URL
-   und den **anon public key** in `src/supabase-config.js` ersetzen. Der
-   `service_role`-Key darf niemals in den Browser gelangen.
-3. Bei einem neuen Supabase-Projekt zuerst
-   [`supabase/base-schema.sql`](supabase/base-schema.sql), anschließend
-   [`supabase/schema.sql`](supabase/schema.sql) ausführen. Bei einem
-   bestehenden Projekt nur das Delta-Skript `supabase/schema.sql` ausführen.
-   Es ergänzt Konto- und Audit-Spalten, Soft-Delete, Kategorien,
-   Wiederholungsbuchungen, den Änderungsverlauf, gefilterte Reporting-Funktionen
-   und die aktuellen RLS-Policies. Nach Schemaänderungen muss das Delta-Skript
-   erneut ausgeführt werden.
-4. Buchungen dürfen nur Administratoren anlegen, bearbeiten oder löschen.
-   `bvbrulez@gmail.com` ist als Admin fest zugelassen; weitere Admins benötigen
-   serverseitig `app_metadata.role: "admin"`. Diese Rolle ausschließlich über
-   einen vertrauenswürdigen Supabase-Admin-Kontext vergeben (Admin API,
-   `auth.admin.updateUserById`), niemals über `user_metadata` oder aus dem
-   Browser. Änderungen an `app_metadata` werden nach Erneuerung der Sitzung
-   bzw. erneuter Anmeldung wirksam. Alle angemeldeten Mitglieder behalten
-   Lesezugriff.
+### Architektur
 
-5. Unter **Authentication → Users** alle berechtigten Mitglieder als eigene
-   Auth-Benutzer anlegen. Der Login-Bereich verwendet Supabase
-   `signInWithPassword` und stellt bestehende Sessions beim Laden der Seite
-   automatisch wieder her. Jeder Benutzer meldet sich mit seiner eigenen
-   E-Mail-Adresse und dem für sein Konto gesetzten Passwort an. Für
-   ausschließlich lesenden Zugriff darf in `app_metadata` keine Admin-Rolle
-   gesetzt sein; `user_metadata.display_name` kann optional für den angezeigten
-   Namen verwendet werden. Es gibt keine gemeinsamen oder fest eingebauten
-   Zugangsdaten. Für den Passwort-Reset die GitHub-Pages-URL unter
-   **Authentication → URL Configuration → Redirect URLs** freigeben. Der Link
-   wird an die eingegebene E-Mail gesendet; die Anwendung speichert oder
-   verarbeitet kein bestehendes Passwort.
-6. Die Seite über GitHub Pages veröffentlichen oder `src/` auf einen statischen
-   Webserver deployen.
+- `src/index.html` – Seitenstruktur und Dialoge
+- `src/scripts/app.js` – Supabase-Zugriffe, Finanzlogik und Benutzeroberfläche
+- `src/styles/` – Layout und responsive Gestaltung
+- `src/supabase-config.js` – öffentliche Supabase-Projekt-URL und anon key
+- `supabase/base-schema.sql` – Grundschema für ein neues Projekt
+- `supabase/schema.sql` – Delta-Schema für bestehende Projekte
 
-## Buchungsverwaltung
+```mermaid
+flowchart LR
+    Browser[Browser: HTML, CSS und JavaScript] -->|anon key + Sitzung| Supabase[Supabase]
+    Supabase --> Auth[Authentication]
+    Supabase --> DB[(Postgres)]
+    DB --> RLS[RLS und Datenbankfunktionen]
+    RLS -->|autorisierte Daten und Aktionen| Browser
+    GitHub[Push auf main] --> Pages[GitHub Actions: GitHub Pages]
+    Pages --> Browser
+```
 
-Monats- und Kategorieauswertungen übernehmen Jahr oder frei gewählten Zeitraum,
-Buchungsart, Abgleichstatus und Suche sowie optional den Konto-Summenfilter. Schnellfilter für
-die letzten 30 Tage, den aktuellen Monat und das laufende Jahr helfen bei der
-Auswahl; häufige und selbst gespeicherte Filteransichten stehen als Chips bereit
-und werden lokal im Browser gespeichert. Ein eigenes Startdatum hat Vorrang vor
-dem Jahresanfang; bleibt das Enddatum leer, reicht der Zeitraum bis heute. Ein
-Enddatum ohne eigenes Startdatum verwendet den Jahresanfang (begrenzt auf den
-Kassenstart 01.10.2026).
-PDF- und CSV-Export verwenden dieselben Datums- und Buchungsfilter. Der
-PDF-Export lädt Buchungen in Seiten zu je 500 Einträgen und zeigt währenddessen
-den Fortschritt an. Kategorien werden
-zentral in `transaction_categories` verwaltet. Administratoren können sie in
-der Oberfläche ergänzen oder entfernen; Kategorien, die noch in Buchungen
-verwendet werden, schützt ein Fremdschlüssel vor dem Löschen. Bestehende
-Kategorien werden bei der Migration übernommen.
+### Supabase einrichten
 
-PDF-Exporte sind auf 5.000 Buchungen begrenzt, um Browser-Speicher und
-Druckansicht zu schützen. Bei größeren Treffermengen bitte Zeitraum, Konto
-oder Suchfilter eingrenzen.
+Für ein neues Projekt zuerst `supabase/base-schema.sql`, danach
+`supabase/schema.sql` im Supabase SQL Editor ausführen. Bei einem bestehenden
+Projekt nur `supabase/schema.sql` ausführen. **Das Delta-Skript löscht
+Buchungen vor dem 01.10.2026 samt zugehörigem Änderungsverlauf und
+Beitragszuordnungen endgültig. Vor der Ausführung ein Datenbank-Backup
+erstellen.** Belegdateien im Storage werden dabei nicht gelöscht.
 
-Administratoren können bis zu 500 Buchungen aus CSV-Dateien importieren.
-Profile für Sparkasse, Volks-/Raiffeisenbank, Deutsche Bank/Postbank, PayPal
-und Standard-CSV schlagen passende Spaltenzuordnungen vor; diese lassen sich
-vor dem Import anpassen. Ein Beispiel-CSV-Download zeigt das unterstützte
-Format. Beträge mit Vorzeichen sowie getrennte Soll-/Haben-Spalten bestimmen
-automatisch Einnahme oder Ausgabe, wenn keine passende Art-Spalte vorhanden
-ist. Die Vorschau markiert ungültige Zeilen sowie exakte Dubletten anhand von
-Datum, Buchungsart, Konto, Beschreibung und Betrag; markierte Zeilen werden
-übersprungen. CSV-Dateien benötigen eine Kopfzeile und ein Datum im ISO- oder
-deutschen Format. Ohne Kontospalte wird das Bankkonto, ohne Kategoriespalte
-„Sonstiges“ verwendet.
+Die Projekt-URL und der **anon public key** gehören in
+`src/supabase-config.js`. Niemals den `service_role`-Key im Frontend oder in
+versionierten Dateien hinterlegen. RLS und Datenbankfunktionen erzwingen die
+Berechtigungen zusätzlich zur Oberfläche.
 
-Neben dem PDF kann die gefilterte Buchungsliste als UTF-8-CSV exportiert und in
-Tabellenkalkulationen geöffnet werden. Der Export berücksichtigt Jahr, Konto,
-Buchungsart und Suche, ist auf 5.000 Buchungen begrenzt und schützt Textfelder
-vor der Ausführung als Tabellenformel.
+Mitglieder benötigen jeweils einen eigenen Benutzer unter
+**Authentication → Users**. Administratoren erhalten serverseitig
+`app_metadata.role: "admin"`; `bvbrulez@gmail.com` ist zusätzlich als
+Administrator fest hinterlegt. Rollenänderungen ausschließlich über einen
+vertrauenswürdigen Supabase-Admin-Kontext vornehmen, nie aus dem Browser.
 
-Unter **Wiederholungen** können wöchentliche, monatliche und jährliche
-Buchungsvorlagen verwaltet und pausiert werden. Ein optionales Enddatum begrenzt
-die Fälligkeiten; fällige Vorkommen werden nur nach manueller Bestätigung
-erzeugt und in der Oberfläche hervorgehoben. Das Datum des ersten monatlichen
-Vorkommens bestimmt den Monatstag; bei kürzeren Monaten wird der letzte
-Monatstag verwendet. Jährliche Termine am 29. Februar fallen in Nicht-Schalt-
-jahren auf den 28. Februar. Die Datenbank verhindert Termine aktiver Vorlagen
-vor dem 01.10.2026 sowie Doppelbuchungen für dasselbe Vorkommen.
+### Deployment und Changelog
 
-Administratoren können gelöschte Buchungen über **Gelöschte Buchungen**
-anzeigen und wiederherstellen. **Verlauf** zeigt Erstellungs-, Änderungs-,
-Lösch- und Wiederherstellungszeitpunkt, Benutzer sowie die betroffenen
-Buchungswerte direkt im Vorher-nachher-Vergleich. Der Auditverlauf beginnt mit
-dem Zeitpunkt, an dem das aktuelle Delta-Skript ausgeführt wird. Monats- und
-Kategorie-Diagramme bieten zusätzlich aufklappbare Datentabellen, die per
-Tastatur und Screenreader nutzbar sind.
-
-Administratoren können Buchungen nach Abgleichstatus filtern und nach Prüfung
-mit Kontoauszügen einzeln oder gesammelt als abgeglichen markieren. Die
-Abgleichübersicht fasst offene und abgeglichene Buchungsanzahl sowie Betrag für
-Bank- und PayPal-Konto im ausgewählten Zeitraum zusammen. Zeitpunkt und Benutzer
-werden gespeichert und sind in Listen sowie Exporten sichtbar; der Verlauf
-protokolliert auch das Abgleichen und Aufheben eines Abgleichs. Neue Buchungen
-und CSV-Importe beginnen standardmäßig als offen.
-
-Der CSV-Export erlaubt eine eigene Spaltenauswahl und merkt sie im Browser für
-den nächsten Export. Administratoren können optional zusätzlich den
-Änderungsverlauf der exportierten Buchungen in derselben Datei mit ausgeben.
-Monats- und Kategorieauswertungen stehen direkt oberhalb der Filter und
-Buchungsliste, damit die Entwicklung des ausgewählten Zeitraums schneller
-erkennbar ist. Der Gesamtsaldo ist als Hauptkennzahl hervorgehoben; Bank- und
-PayPal-Konto erhalten eigene dezente Farben. Zeitraum-, Konto- und
-Buchungsfilter sind gruppiert, aktive Filter lassen sich einzeln über Chips
-entfernen. Einnahmen und Ausgaben sind in der Liste durch dezente Farbakzente
-unterscheidbar.
-
-## Quartalsbeiträge
-
-Die laufende Kassenverwaltung beginnt am **01.10.2026**. Beim Ausführen des
-aktuellen `supabase/schema.sql` werden ältere Buchungen sowie deren
-Änderungsverlauf und Beitragszuordnungen gelöscht. Diese Löschung ist endgültig.
-Vor dem Ausführen muss deshalb ein Datenbank-Backup erstellt werden. Dateien im
-privaten Belegspeicher werden von dieser Migration nicht gelöscht.
-Buchungen mit Datum vor dem Startdatum werden anschließend auch durch die
-Datenbank abgewiesen.
-
-Administratoren tragen in der Oberfläche den Bank- und PayPal-Startsaldo zum
-01.10.2026 ein. Die Kontostände werden aus diesen Anfangssalden und den
-Buchungen ab diesem Datum bis zum Ende des gewählten Zeitraums berechnet.
-CSV-Import und manuelle Buchungseingabe berücksichtigen ebenfalls nur Daten ab
-dem Startdatum.
-
-Die Beitragsübersicht zeigt für alle angemeldeten Mitglieder den Zahlungsstatus
-je Quartal ab Q4 2026. Beiträge sind am letzten Tag des Quartals fällig und ab
-dem Folgetag überfällig. Bis zum Quartalsende wird ein unbezahlter Beitrag als
-„Noch nicht fällig“ angezeigt; am Fälligkeitstag als „Fällig heute“.
-Administratoren pflegen die separate Mitgliederliste und können Mitglieder
-deaktivieren oder reaktivieren. Der Quartalsbeitrag startet mit 75 Euro.
-Administratoren können neue Sätze ab einem gewählten Quartal festlegen; der
-Satz gilt bis zum nächsten wirksamen Satz. Die Historie bleibt sichtbar und
-bereits zugeordnete Zahlungen behalten den bei der Zuordnung gespeicherten
-Quartalsbetrag.
-
-Eine Zahlung wird durch einen Administrator einer vorhandenen Einnahme-Buchung
-und einem Mitglied zugeordnet. Einnahmen können in Seiten geladen und nach
-Beschreibung durchsucht werden. Die Buchungssumme muss der Summe der für die
-abgedeckten Quartale gültigen Beitragssätze entsprechen. Zusammenhängende
-Quartale können in einer Zuordnung erfasst werden, auch über einen Jahreswechsel
-und Satzwechsel hinweg. Eine Einnahme kann nur einmal zugeordnet werden;
-bereits bezahlte Quartale können nicht doppelt verbucht werden. Zum Korrigieren
-hebt ein Administrator die gesamte Zuordnung auf; die Einnahme selbst bleibt
-bestehen. Die Zuordnungen und Mitgliederliste werden durch Supabase-RLS
-geschützt.
-
-## Admin-Zugänge verwalten
-
-Admin-Rechte liegen ausschließlich in Supabase `app_metadata.role`. Zum
-Befördern oder Zurückstufen `app_metadata` über eine vertrauenswürdige
-Supabase-Admin-API (`auth.admin.updateUserById`) auf `{"role":"admin"}` setzen
-bzw. die `role` entfernen. Vorher die Benutzer-ID unter **Authentication →
-Users** prüfen; anschließend die Rolle über einen geschützten Server-/Admin-
-Kontext setzen. Zum Entziehen `app_metadata` aktualisieren und die aktive
-Session des Benutzers widerrufen bzw. erneuern. Niemals den Service-Role-Key
-im Frontend, in Git-Dateien oder in einem öffentlichen Script hinterlegen.
-Die Benutzeroberfläche zeigt die aus dem aktuellen JWT gelesene Rolle; die
-RLS-Policies in `supabase/schema.sql` erzwingen sie unabhängig davon.
-
-## Deployment
-
-Die GitHub-Action veröffentlicht `src/` bei jedem Push auf `main` automatisch
-als GitHub-Pages-Seite.
-
-## Automatischer Changelog
-
-Die versionierten Git-Hooks einmalig aktivieren:
+Ein Push auf `main` veröffentlicht `src/` über die GitHub Action automatisch
+auf GitHub Pages. Der versionierte Hook ergänzt beim Commit die geänderten
+Dateien im `CHANGELOG.md`. Einmal pro Clone aktivieren:
 
 ```sh
 git config core.hooksPath .githooks
 chmod +x .githooks/pre-commit
 ```
-
-Der `pre-commit`-Hook ergänzt vor jedem Commit die am aktuellen Tag geänderten
-Dateien in `CHANGELOG.md`. Beim anschließenden Push ist der Changelog damit
-bereits Bestandteil des Commits.

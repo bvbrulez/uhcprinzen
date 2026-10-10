@@ -668,10 +668,10 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .contribution-status-pill { align-items: center; border-radius: 999px; display: inline-flex; font-size: .7rem; font-weight: 850; justify-self: start; line-height: 1.2; padding: .3rem .55rem; }
 .contribution-status-paid { background: #dff2e6; color: #176b48; }
 .contribution-status-future { background: #edf1f4; color: #5d707b; }
-.contribution-status-overdue { background: #fde1dc; color: #a3332d; }
-.contribution-status-due { background: #fff0d4; color: #8c5c13; }
-.contribution-open { color: #9b4939; font-weight: 750; }
-.contribution-overdue { background: #fff5f2 !important; }
+.contribution-status-overdue { background: #f9d8d3; color: #922d27; }
+.contribution-status-due { background: #ffe3ad; color: #754600; }
+.contribution-table .contribution-open { background: #fff6e6 !important; border-left: 3px solid #e59624; color: #754600; font-weight: 800; }
+.contribution-table .contribution-overdue { background: #fff0ed !important; border-left: 3px solid #c9483e; color: #922d27; font-weight: 800; }
 .contribution-inactive { color: var(--muted); }
 .contribution-admin { background: #fff; border: 1px solid #dfe9e4; border-radius: .85rem; margin-top: 1rem; }
 .contribution-admin > summary { color: #31574b; cursor: pointer; font-size: .85rem; font-weight: 800; list-style-position: inside; padding: .85rem 1rem; }

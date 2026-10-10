@@ -468,8 +468,13 @@ function quarterDate(year, quarterIndex) {
   return new Date(Date.UTC(year, quarterIndex * 3, 1)).toISOString().slice(0, 10);
 }
 
-function quarterEndDate(year, quarterIndex) {
-  return new Date(Date.UTC(year, (quarterIndex + 1) * 3, 0)).toISOString().slice(0, 10);
+function quarterContributionDueDate(year, quarterIndex) {
+  return `${quarterDate(year, quarterIndex).slice(0, 7)}-15`;
+}
+
+function contributionDueStatus(today, quarterStart, dueDate) {
+  if (today < quarterStart) return "future";
+  return today > dueDate ? "overdue" : "due";
 }
 
 function getQuarterlyContributionAmount(quarterStart) {
@@ -627,7 +632,7 @@ function renderTeamContributions() {
   const activeMembers = teamMembers.filter(member => member.active);
   const today = todayDate();
   const eligibleQuarters = [0, 1, 2, 3].filter(index => quarterDate(year, index) >= financeStartDate);
-  const dueQuarters = eligibleQuarters.filter(index => today >= quarterEndDate(year, index));
+  const dueQuarters = eligibleQuarters.filter(index => today >= quarterDate(year, index));
   const dueCount = activeMembers.length * dueQuarters.length;
   let paidDueCount = 0;
   let openCount = 0;
@@ -646,7 +651,7 @@ function renderTeamContributions() {
     let memberFutureCount = 0;
     [0, 1, 2, 3].forEach(index => {
       const start = quarterDate(year, index);
-      const end = quarterEndDate(year, index);
+      const dueDate = quarterContributionDueDate(year, index);
       const quarterPayment = paymentsByMemberQuarter.get(`${member.id}:${start}`);
       const cell = document.createElement("td");
       cell.dataset.label = `Q${index + 1}`;
@@ -656,7 +661,7 @@ function renderTeamContributions() {
       } else if (quarterPayment?.payment) {
         const payment = quarterPayment.payment;
         memberPaidCount += 1;
-        if (member.active && today >= end) {
+        if (member.active && today >= start) {
           memberPaidDueCount += 1;
           paidDueCount += 1;
         }
@@ -683,35 +688,38 @@ function renderTeamContributions() {
         if (!member.active) {
           cell.className = "contribution-inactive";
           cell.textContent = "–";
-        } else if (today < end) {
-          memberFutureCount += 1;
-          cell.className = "contribution-not-due";
-          const badge = document.createElement("span");
-          badge.className = "contribution-status-pill contribution-status-future";
-          badge.textContent = "Noch nicht fällig";
-          const detail = document.createElement("small");
-          detail.textContent = `${money(getQuarterlyContributionAmount(start))} · bis ${formatDate(end)}`;
-          cell.append(badge, detail);
-        } else if (today > end) {
-          memberOverdueCount += 1;
-          overdueCount += 1;
-          cell.className = "contribution-overdue";
-          const badge = document.createElement("span");
-          badge.className = "contribution-status-pill contribution-status-overdue";
-          badge.textContent = "Überfällig";
-          const detail = document.createElement("small");
-          detail.textContent = `${money(getQuarterlyContributionAmount(start))} · seit ${formatDate(end)}`;
-          cell.append(badge, detail);
         } else {
-          memberOpenCount += 1;
-          openCount += 1;
-          cell.className = "contribution-open";
-          const badge = document.createElement("span");
-          badge.className = "contribution-status-pill contribution-status-due";
-          badge.textContent = "Fällig heute";
-          const detail = document.createElement("small");
-          detail.textContent = money(getQuarterlyContributionAmount(start));
-          cell.append(badge, detail);
+          const dueStatus = contributionDueStatus(today, start, dueDate);
+          if (dueStatus === "future") {
+            memberFutureCount += 1;
+            cell.className = "contribution-not-due";
+            const badge = document.createElement("span");
+            badge.className = "contribution-status-pill contribution-status-future";
+            badge.textContent = "Noch nicht fällig";
+            const detail = document.createElement("small");
+            detail.textContent = `${money(getQuarterlyContributionAmount(start))} · fällig bis ${formatDate(dueDate)}`;
+            cell.append(badge, detail);
+          } else if (dueStatus === "overdue") {
+            memberOverdueCount += 1;
+            overdueCount += 1;
+            cell.className = "contribution-overdue";
+            const badge = document.createElement("span");
+            badge.className = "contribution-status-pill contribution-status-overdue";
+            badge.textContent = "Überfällig";
+            const detail = document.createElement("small");
+            detail.textContent = `${money(getQuarterlyContributionAmount(start))} · Frist ${formatDate(dueDate)}`;
+            cell.append(badge, detail);
+          } else {
+            memberOpenCount += 1;
+            openCount += 1;
+            cell.className = "contribution-open";
+            const badge = document.createElement("span");
+            badge.className = "contribution-status-pill contribution-status-due";
+            badge.textContent = "Fällig";
+            const detail = document.createElement("small");
+            detail.textContent = `${money(getQuarterlyContributionAmount(start))} · bis ${formatDate(dueDate)}`;
+            cell.append(badge, detail);
+          }
         }
       }
       row.append(cell);
@@ -740,7 +748,7 @@ function renderTeamContributions() {
     ...[
       ["Fällig bezahlt", `${paidDueCount} / ${dueCount}`, "paid"],
       ["Überfällig", String(overdueCount), "overdue"],
-      ["Heute fällig", String(openCount), "due"],
+      ["Fällig", String(openCount), "due"],
       ["Noch nicht fällig", String(futureCount), "future"],
       ["Beitrag aktuell", money(getQuarterlyContributionAmount(quarterDate(
         new Date().getFullYear(),
