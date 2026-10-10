@@ -1,6 +1,7 @@
 name: Check Conventional Commits
 
 on:
+  # Check new commits on pull requests and pushes to the default branch.
   pull_request:
   push:
     branches: ["main"]
@@ -16,6 +17,7 @@ jobs:
       - name: Checkout complete history
         uses: actions/checkout@v4
         with:
+          # The validator needs the full commit range for each event.
           fetch-depth: 0
 
       - name: Check commit messages
@@ -29,6 +31,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Select the commits introduced by this push or pull request.
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             range="${BASE_SHA}..${HEAD_SHA}"
           elif [[ "$BEFORE_SHA" =~ ^0+$ ]]; then

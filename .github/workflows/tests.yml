@@ -1,0 +1,25 @@
+name: Test finance rules
+
+on:
+  # Validate every proposed change and keep main green after pushes.
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      # Use the lockfile for a reproducible test environment.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Run the pure finance-rule suite and catch JavaScript syntax errors.
+      - run: npm test
+      - run: node --check src/scripts/app.js

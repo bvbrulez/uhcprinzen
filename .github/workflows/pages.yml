@@ -3,6 +3,7 @@ name: Deploy static frontend
 on:
   push:
     branches: [main]
+  # Allow publishing a deployment without creating a new commit.
   workflow_dispatch:
 
 permissions:
@@ -11,6 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
+  # Keep only the latest Pages deployment in progress.
   group: pages
   cancel-in-progress: true
 
@@ -25,6 +27,7 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      # Publish only the static application files from src/.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: src

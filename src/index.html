@@ -237,7 +237,7 @@
       <form id="csv-import-form" class="dialog-form">
         <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
         <p class="eyebrow">Nur Administratoren</p><h2>CSV importieren</h2>
-        <p class="muted">Unterstützt CSV-Dateien mit Komma, Semikolon oder Tabulator und bis zu 500 Buchungen pro Import. Bankprofile ordnen typische Spalten zu; der Beispiel-CSV-Download zeigt das erwartete Format. Bei einem einzelnen Betragsfeld bestimmt das Vorzeichen Einnahme oder Ausgabe. Nicht zugeordnete Konten verwenden das Bankkonto; ohne Kategorie wird „Sonstiges“ genutzt.</p>
+        <p class="muted">Unterstützt CSV-Dateien mit Komma, Semikolon oder Tabulator, bis zu 5 MB und 500 Buchungen pro Import. Die Vorschau zeigt jeweils 50 Zeilen. Bankprofile ordnen typische Spalten zu; der Beispiel-CSV-Download zeigt das erwartete Format. Bei einem einzelnen Betragsfeld bestimmt das Vorzeichen Einnahme oder Ausgabe. Nicht zugeordnete Konten verwenden das Bankkonto; ohne Kategorie wird „Sonstiges“ genutzt.</p>
         <label>CSV-Profil
           <select id="csv-profile">
             <option value="auto">Automatisch erkennen</option>
@@ -249,10 +249,15 @@
           </select>
         </label>
         <button id="download-csv-example" class="button button-secondary" type="button">Beispiel-CSV herunterladen</button>
-        <label>CSV-Datei <input id="csv-file" type="file" accept=".csv,text/csv,text/plain" required /></label>
+        <label>CSV-Datei (max. 5 MB) <input id="csv-file" type="file" accept=".csv,text/csv,text/plain" required /></label>
         <div id="csv-column-mapping" class="csv-column-mapping"></div>
         <p id="csv-import-status" class="status" role="status" aria-live="polite"></p>
         <div class="table-scroll csv-preview-scroll"><table><caption>Vorschau des CSV-Imports</caption><thead><tr><th>Zeile</th><th>Datum</th><th>Art</th><th>Konto</th><th>Beschreibung</th><th>Betrag</th><th>Kategorie</th><th>Prüfung</th></tr></thead><tbody id="csv-preview"></tbody></table></div>
+        <div class="pagination csv-preview-pagination">
+          <button id="csv-preview-previous" class="button button-secondary button-edit" type="button" disabled>← Vorherige</button>
+          <span id="csv-preview-page-status" class="muted" aria-live="polite">Keine Vorschau vorhanden.</span>
+          <button id="csv-preview-next" class="button button-secondary button-edit" type="button" disabled>Nächste →</button>
+        </div>
         <div class="dialog-actions"><button id="csv-import-submit" class="button" type="submit" disabled>Geprüfte Buchungen importieren</button></div>
       </form>
     </dialog>

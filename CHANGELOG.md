@@ -6,6 +6,56 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-10:
+- `M – .github/copilot-instructions.md`
+- `M – .github/workflows/conventional-commits.yml`
+- `M – .github/workflows/pages.yml`
+- `A – .github/workflows/tests.yml`
+- `A – .gitignore`
+- `M – README.md`
+- `A – package-lock.json`
+- `A – package.json`
+- `A – playwright.config.mjs`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `A – src/scripts/auth-service.mjs`
+- `A – src/scripts/contribution-service.mjs`
+- `A – src/scripts/csv-rules.mjs`
+- `A – src/scripts/finance-rules.mjs`
+- `A – src/scripts/latest-request.mjs`
+- `A – src/scripts/recurring-service.mjs`
+- `A – src/scripts/transaction-service.mjs`
+- `A – supabase/tests/contribution_rules.test.sql`
+- `A – tests/db/run.mjs`
+- `A – tests/e2e/access-control.spec.mjs`
+- `A – tests/e2e/contribution-workflows.spec.mjs`
+- `A – tests/e2e/fixtures/preview.csv`
+- `A – tests/e2e/static-server.mjs`
+- `A – tests/unit/contribution-service.test.mjs`
+- `A – tests/unit/csv-rules.test.mjs`
+- `A – tests/unit/finance-rules.test.mjs`
+- `A – tests/unit/request-gate.test.mjs`
+- `A – tests/unit/transaction-service.test.mjs`
+
+### Tests, Stabilität und Modulstruktur erweitert
+
+- Node-Testabdeckung für Datums-/Beitragsregeln, CSV-Import und -Export,
+  Authentifizierungs-/Datenzugriffe ergänzt; Playwright- und pgTAP-Teststrecken
+  für lokale Entwicklungsumgebungen vorbereitet.
+- Playwright auf Version 1.64 aktualisiert und README um Befehle und
+  Voraussetzungen zum Ausführen der Unit-, Datenbank- und Browser-Tests ergänzt.
+- GitHub-Actions-Workflow für Unit-Tests und Syntaxprüfung eingerichtet und
+  vorhandene Workflow-Dateien kommentiert.
+- Buchungs-, Authentifizierungs- und Wiederholungszugriffe in Services
+  ausgelagert; CSV-Regeln und Beitragslogik separat testbar gemacht.
+- Veraltete Antworten bei Filter- und Sitzungswechseln entwertet.
+- CSV-Import auf 5 MB und 500 Datensätze begrenzt; Vorschau auf Seiten mit je
+  50 Zeilen aufgeteilt und Dateibeispiele an den Verwaltungsbeginn angepasst.
+- README und Copilot-Projektanweisungen zur Testausführung und Modulstruktur
+  aktualisiert.
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-10:
 - `M – README.md`
 - `M – src/index.html`
 - `M – src/scripts/app.js`

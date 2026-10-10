@@ -1,5 +1,37 @@
+import {
+  FINANCE_START_DATE as financeStartDate,
+  contributionAmountForQuarters as calculateContributionAmount,
+  contributionDueStatus,
+  getQuarterlyContributionAmount as getEffectiveQuarterlyContributionAmount,
+  quarterContributionDueDate,
+  quarterDate,
+  resolveDateRange,
+} from "./finance-rules.mjs";
+import { createContributionService } from "./contribution-service.mjs";
+import { createAuthService } from "./auth-service.mjs";
+import { createRecurringService } from "./recurring-service.mjs";
+import { createTransactionService } from "./transaction-service.mjs";
+import { createLatestRequestGate } from "./latest-request.mjs";
+import {
+  buildCsvText,
+  csvDuplicateKey,
+  exportColumnOptions,
+  csvFields,
+  csvProfileAliases,
+  normalizeHeader,
+  parseCsv,
+  parseCsvAmount,
+  parseCsvDate,
+  parseCsvType,
+} from "./csv-rules.mjs";
+
 const config = window.SUPABASE_CONFIG;
 const supabaseClient = config?.url && config?.anonKey ? supabase.createClient(config.url, config.anonKey) : null;
+const authService = supabaseClient ? createAuthService(supabaseClient) : null;
+const contributionService = createContributionService(supabaseClient);
+const recurringService = createRecurringService(supabaseClient);
+const transactionService = createTransactionService(supabaseClient);
+const transactionRequests = createLatestRequestGate();
 const loginDialog = document.querySelector("#login-dialog");
 const transactionDialog = document.querySelector("#transaction-dialog");
 const passwordResetDialog = document.querySelector("#password-reset-dialog");
@@ -56,6 +88,9 @@ const csvImportForm = document.querySelector("#csv-import-form");
 const csvFile = document.querySelector("#csv-file");
 const csvColumnMapping = document.querySelector("#csv-column-mapping");
 const csvPreview = document.querySelector("#csv-preview");
+const csvPreviewPrevious = document.querySelector("#csv-preview-previous");
+const csvPreviewNext = document.querySelector("#csv-preview-next");
+const csvPreviewPageStatus = document.querySelector("#csv-preview-page-status");
 const csvImportStatus = document.querySelector("#csv-import-status");
 const csvImportSubmit = document.querySelector("#csv-import-submit");
 const csvProfile = document.querySelector("#csv-profile");
@@ -90,17 +125,19 @@ let transactionAnalytics = null;
 let currentPage = 0;
 const pageSize = 50;
 let totalPages = 0;
-let loadingTransactions = false;
 let editingTransaction = null;
 let searchTimer = null;
 let csvHeaders = [];
 let csvRecords = [];
 let csvPreparedRows = [];
+let csvPreviewPage = 0;
+let csvClassificationRequestId = 0;
 let recurringEditId = null;
 let selectedTransactionIds = new Set();
 const savedFiltersKey = "uhc-prinzen-saved-filters";
 const csvColumnsKey = "uhc-prinzen-csv-columns";
-const financeStartDate = "2026-10-01";
+const csvPreviewPageSize = 50;
+const csvMaxFileBytes = 5 * 1024 * 1024;
 let savedFilters = [];
 let teamMembers = [];
 let contributionPayments = [];
@@ -128,16 +165,6 @@ const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Se
 dateFromFilter.min = financeStartDate;
 dateToFilter.min = financeStartDate;
 
-function resolveDateRange(year, startDate, endDate, today) {
-  const yearStart = `${year}-01-01`;
-  const minimumStart = yearStart < financeStartDate ? financeStartDate : yearStart;
-  const start = startDate && startDate >= financeStartDate ? startDate : minimumStart;
-  return {
-    start,
-    end: endDate || (startDate ? today : `${year}-12-31`),
-  };
-}
-
 function getEffectiveDateRange(year = yearFilter.value || String(new Date().getFullYear())) {
   return resolveDateRange(year, dateFromFilter.value, dateToFilter.value, todayDate());
 }
@@ -149,20 +176,8 @@ function dateRangeLabel() {
     : yearFilter.value;
 }
 
-async function loadTransactionYears() {
-  const { data, error } = await supabaseClient.rpc("get_transaction_years");
-  if (!error) return (data || []).map(item => String(item.year));
-  if (error.code !== "PGRST202") throw error;
-  const { data: fallbackData, error: fallbackError } = await supabaseClient
-    .from("transactions")
-    .select("transaction_date");
-  if (fallbackError) throw fallbackError;
-  return [...new Set(fallbackData
-    .filter(item => item.transaction_date >= financeStartDate)
-    .map(item => item.transaction_date.slice(0, 4)))];
-}
-
 function setAuthenticated(nextSession) {
+  transactionRequests.invalidate();
   session = nextSession;
   const authenticated = Boolean(session);
   const administrator = isAdministrator();
@@ -185,6 +200,7 @@ function setAuthenticated(nextSession) {
   if (!authenticated) {
     transactionAnalytics = null;
     transactions = [];
+    financeContent.setAttribute("aria-busy", "false");
     writeSetupStatus.textContent = "Schreibrechte: werden bei der ersten Änderung geprüft.";
     writeSetupStatus.className = "";
     setFinanceStatus("");
@@ -377,66 +393,42 @@ function getExportFilters() {
   };
 }
 
-async function loadTransactions() {
+async function loadTransactions(requestId) {
   if (!supabaseClient) throw new Error("Supabase ist noch nicht konfiguriert.");
   const year = yearFilter.value || String(new Date().getFullYear());
   const dateRange = getEffectiveDateRange(year);
   if (dateRange.start > dateRange.end) throw new Error("Das Startdatum darf nicht nach dem Enddatum liegen.");
-  let query = supabaseClient.from("transactions")
-    .select("id, type, account, description, amount, transaction_date, category, created_at, created_by_email, updated_at, updated_by_email, deleted_at, deleted_by_email, reconciled_at, reconciled_by_email", { count: "exact" })
-    .gte("transaction_date", dateRange.start)
-    .lte("transaction_date", dateRange.end)
-    .order("transaction_date", { ascending: false })
-    .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
-  query = showDeleted.checked && isAdministrator()
-    ? query.not("deleted_at", "is", null)
-    : query.is("deleted_at", null);
-  if (accountFilter.value !== "ALL") query = query.eq("account", accountFilter.value);
-  if (typeFilter.value !== "ALL") query = query.eq("type", typeFilter.value);
-  if (reconciliationFilter.value === "OPEN") query = query.is("reconciled_at", null);
-  if (reconciliationFilter.value === "RECONCILED") query = query.not("reconciled_at", "is", null);
-  if (transactionSearch.value.trim()) {
-    const search = transactionSearch.value.trim().replace(/[%_(),]/g, " ");
-    query = query.or(`description.ilike.%${search}%,category.ilike.%${search}%`);
-  }
-  const analyticsAccount = summaryFilter.checked && accountFilter.value !== "ALL" ? accountFilter.value : null;
-  const analyticsPromise = supabaseClient.rpc("get_transaction_analytics", {
-    p_year: Number(year),
-    p_account: analyticsAccount,
-    p_type: typeFilter.value === "ALL" ? null : typeFilter.value,
-    p_search: transactionSearch.value.trim().replace(/[%_(),]/g, " ") || null,
-    p_start_date: dateRange.start,
-    p_end_date: dateRange.end,
-    p_reconciled: reconciliationFilter.value === "ALL" ? null : reconciliationFilter.value === "RECONCILED",
+  const filters = {
+    year,
+    dateRange,
+    showDeleted: showDeleted.checked && isAdministrator(),
+    account: accountFilter.value,
+    type: typeFilter.value,
+    reconciliation: reconciliationFilter.value,
+    search: transactionSearch.value.trim().replace(/[%_(),]/g, " "),
+    summary: summaryFilter.checked,
+  };
+  const result = await transactionService.loadPage({
+    filters,
+    page: currentPage,
+    pageSize,
+    startDate: financeStartDate,
   });
-  const yearsPromise = loadTransactionYears();
-  const categoriesPromise = loadTransactionCategories();
-  const [queryOutcome, analyticsOutcome, yearsOutcome, categoriesOutcome] = await Promise.allSettled([query, analyticsPromise, yearsPromise, categoriesPromise]);
-  if (queryOutcome.status === "rejected") throw queryOutcome.reason;
-  const queryResult = queryOutcome.value;
-  if (queryResult.error) throw queryResult.error;
+  if (!transactionRequests.isCurrent(requestId)) return;
   databaseSetupStatus.textContent = "Datenbankzugriff: verfügbar.";
   databaseSetupStatus.className = "setup-success";
-  if (analyticsOutcome.status === "rejected") throw analyticsOutcome.reason;
-  const analyticsResult = analyticsOutcome.value;
-  if (analyticsResult.error) throw analyticsResult.error;
-  if (yearsOutcome.status === "rejected") throw yearsOutcome.reason;
-  if (categoriesOutcome.status === "rejected") throw categoriesOutcome.reason;
-  const years = yearsOutcome.value;
-  setCategoryOptions(categoriesOutcome.value);
+  setCategoryOptions(result.categories);
   reportSetupStatus.textContent = "Berichtsfunktionen: verfügbar.";
   reportSetupStatus.className = "setup-success";
-  const { data, count } = queryResult;
-  const { data: analyticsData } = analyticsResult;
-  transactions = data || [];
-  transactionAnalytics = analyticsData;
-  totalPages = Math.max(1, Math.ceil((count || 0) / pageSize));
+  transactions = result.transactions;
+  transactionAnalytics = result.analytics;
+  totalPages = Math.max(1, Math.ceil(result.count / pageSize));
   previousPage.disabled = currentPage === 0;
   nextPage.disabled = currentPage >= totalPages - 1;
   pageStatus.textContent = `Seite ${currentPage + 1} von ${totalPages}`;
   const availableYears = [...new Set([
     String(new Date().getFullYear()),
-    ...years.filter(value => `${value}-12-31` >= financeStartDate),
+    ...result.years.filter(value => `${value}-12-31` >= financeStartDate),
   ])].sort().reverse();
   const selectedYear = availableYears.includes(yearFilter.value) ? yearFilter.value : availableYears[0];
   yearFilter.replaceChildren(...availableYears.map(value => new Option(value, value, value === selectedYear, value === selectedYear)));
@@ -445,12 +437,7 @@ async function loadTransactions() {
 }
 
 async function loadTransactionCategories() {
-  const { data, error } = await supabaseClient
-    .from("transaction_categories")
-    .select("name")
-    .order("name");
-  if (error) throw error;
-  return (data || []).map(item => item.name);
+  return transactionService.loadCategories();
 }
 
 function setCategoryOptions(categories, selected = transactionCategory.value) {
@@ -464,32 +451,16 @@ function setCategoryOptions(categories, selected = transactionCategory.value) {
   if (isAdministrator()) renderCategoryManagementList(categories);
 }
 
-function quarterDate(year, quarterIndex) {
-  return new Date(Date.UTC(year, quarterIndex * 3, 1)).toISOString().slice(0, 10);
-}
-
-function quarterContributionDueDate(year, quarterIndex) {
-  return `${quarterDate(year, quarterIndex).slice(0, 7)}-15`;
-}
-
-function contributionDueStatus(today, quarterStart, dueDate) {
-  if (today < quarterStart) return "future";
-  return today > dueDate ? "overdue" : "due";
-}
-
 function getQuarterlyContributionAmount(quarterStart) {
-  const rate = [...contributionRates]
-    .filter(item => item.quarter_start <= quarterStart)
-    .sort((a, b) => b.quarter_start.localeCompare(a.quarter_start))[0];
-  return Number(rate?.quarterly_amount ?? quarterlyContributionAmount);
+  return getEffectiveQuarterlyContributionAmount(
+    contributionRates,
+    quarterlyContributionAmount,
+    quarterStart,
+  );
 }
 
 function contributionAmountForQuarters(quarterStarts) {
-  const totalCents = quarterStarts.reduce(
-    (total, quarterStart) => total + Math.round(getQuarterlyContributionAmount(quarterStart) * 100),
-    0,
-  );
-  return totalCents / 100;
+  return calculateContributionAmount(contributionRates, quarterlyContributionAmount, quarterStarts);
 }
 
 function quarterLabel(quarterStart) {
@@ -580,20 +551,14 @@ async function loadContributionIncomeTransactions(reset = false) {
   renderContributionPaymentControls();
   try {
     const offset = reset ? 0 : contributionIncomeTransactions.length;
-    let query = supabaseClient.from("transactions")
-      .select("id, description, amount, transaction_date")
-      .eq("type", "INCOME")
-      .gte("transaction_date", financeStartDate)
-      .is("deleted_at", null)
-      .order("transaction_date", { ascending: false })
-      .order("id", { ascending: false })
-      .range(offset, offset + 99);
     const search = contributionPaymentSearch.value.trim();
-    if (search) query = query.ilike("description", `%${search}%`);
-    const { data, error } = await query;
-    if (error) throw error;
+    const data = await contributionService.loadIncomeTransactions({
+      startDate: financeStartDate,
+      offset,
+      search,
+    });
     if (requestId !== contributionIncomeRequestId) return;
-    const page = data || [];
+    const page = data;
     const knownIds = new Set(contributionIncomeTransactions.map(item => Number(item.id)));
     contributionIncomeTransactions.push(...page.filter(item => !knownIds.has(Number(item.id))));
     contributionIncomeHasMore = page.length === 100;
@@ -783,31 +748,14 @@ async function refreshContributions() {
   contributionError.hidden = true;
   contributionSummary.textContent = "Beitragsübersicht wird geladen …";
   try {
-    const [membersResult, settingsResult, paymentsResult, quartersResult, ratesResult] = await Promise.all([
-      supabaseClient.from("team_members").select("id, name, active").order("name"),
-      supabaseClient.from("team_contribution_settings")
-        .select("quarterly_amount, bank_opening_balance, paypal_opening_balance")
-        .eq("id", 1)
-        .maybeSingle(),
-      supabaseClient.from("team_contribution_payments")
-        .select("id, member_id, transaction_id, quarterly_amount, transaction:transactions(description, transaction_date)")
-        .order("created_at", { ascending: false }),
-      supabaseClient.from("team_contribution_payment_quarters")
-        .select("payment_id, member_id, quarter_start, quarterly_amount"),
-      supabaseClient.from("team_contribution_rates")
-        .select("quarter_start, quarterly_amount")
-        .order("quarter_start"),
-    ]);
-    for (const result of [membersResult, settingsResult, paymentsResult, quartersResult, ratesResult]) {
-      if (result.error) throw result.error;
-    }
-    teamMembers = membersResult.data || [];
-    quarterlyContributionAmount = Number(settingsResult.data?.quarterly_amount ?? 75);
-    bankOpeningBalance = Number(settingsResult.data?.bank_opening_balance ?? 0);
-    paypalOpeningBalance = Number(settingsResult.data?.paypal_opening_balance ?? 0);
-    contributionPayments = paymentsResult.data || [];
-    contributionQuarters = quartersResult.data || [];
-    contributionRates = ratesResult.data || [];
+    const overview = await contributionService.loadOverview();
+    teamMembers = overview.members;
+    quarterlyContributionAmount = Number(overview.settings?.quarterly_amount ?? 75);
+    bankOpeningBalance = Number(overview.settings?.bank_opening_balance ?? 0);
+    paypalOpeningBalance = Number(overview.settings?.paypal_opening_balance ?? 0);
+    contributionPayments = overview.payments;
+    contributionQuarters = overview.quarters;
+    contributionRates = overview.rates;
     if (transactionAnalytics) renderTransactions();
     renderTeamContributions();
     if (isAdministrator()) await loadContributionIncomeTransactions(true);
@@ -829,10 +777,7 @@ async function refreshContributions() {
 async function toggleTeamMember(member) {
   if (!isAdministrator()) return;
   try {
-    const { error } = await supabaseClient.from("team_members")
-      .update({ active: !member.active })
-      .eq("id", member.id);
-    if (error) throw error;
+    await contributionService.updateMember(member);
     contributionAdminStatus.textContent = `${member.name} wurde ${member.active ? "deaktiviert" : "reaktiviert"}.`;
     await refreshContributions();
   } catch (error) {
@@ -845,10 +790,7 @@ async function removeContributionPayment(payment) {
   const count = contributionQuarters.filter(item => Number(item.payment_id) === Number(payment.id)).length;
   if (!window.confirm(`Die Zahlungszuordnung für ${count} Quartal${count === 1 ? "" : "e"} wirklich aufheben? Die Einnahme-Buchung bleibt bestehen.`)) return;
   try {
-    const { error } = await supabaseClient.from("team_contribution_payments")
-      .delete()
-      .eq("id", payment.id);
-    if (error) throw error;
+    await contributionService.removePayment(payment.id);
     contributionAdminStatus.textContent = "Zahlungszuordnung aufgehoben.";
     await refreshContributions();
   } catch (error) {
@@ -874,8 +816,9 @@ function renderCategoryManagementList(categories) {
 async function removeTransactionCategory(name) {
   if (!isAdministrator()) return;
   if (!window.confirm(`Kategorie "${name}" entfernen? Kategorien mit bestehenden Buchungen können nicht entfernt werden.`)) return;
-  const { error } = await supabaseClient.from("transaction_categories").delete().eq("name", name);
-  if (error) {
+  try {
+    await transactionService.removeCategory(name);
+  } catch (error) {
     setWriteSetupStatus(`Kategorielöschen fehlgeschlagen: ${error.message}`, true);
     categoryManagementStatus.textContent = error.code === "23503"
       ? "Diese Kategorie wird noch von Buchungen verwendet und kann deshalb nicht entfernt werden."
@@ -934,24 +877,24 @@ function getFinanceErrorMessage(error) {
 }
 
 async function refreshTransactions() {
-  if (loadingTransactions) return;
-  loadingTransactions = true;
+  const requestId = transactionRequests.begin();
   selectedTransactionIds.clear();
   updateBulkReconcileControls();
   retryTransactions.hidden = true;
   financeContent.setAttribute("aria-busy", "true");
   setFinanceStatus("Finanzdaten werden geladen …");
   try {
-    await loadTransactions();
+    await loadTransactions(requestId);
+    if (!transactionRequests.isCurrent(requestId)) return;
     setFinanceStatus(transactions.length ? "" : "Noch keine Buchungen vorhanden.");
   } catch (error) {
+    if (!transactionRequests.isCurrent(requestId)) return;
     const message = getFinanceErrorMessage(error);
     setFinanceStatus(message, "status-error");
     if (error.code === "42P01" || error.code === "PGRST202" || error.code === "42501") setFinanceSetupError(message);
     retryTransactions.hidden = false;
   } finally {
-    loadingTransactions = false;
-    financeContent.setAttribute("aria-busy", "false");
+    if (transactionRequests.isCurrent(requestId)) financeContent.setAttribute("aria-busy", "false");
   }
 }
 
@@ -1194,85 +1137,6 @@ const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character =>
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
 }[character]));
 
-function parseCsv(text) {
-  const sample = text.split(/\r?\n/, 1)[0] || "";
-  const delimiter = [",", ";", "\t"].sort((a, b) => sample.split(b).length - sample.split(a).length)[0];
-  const rows = [];
-  let row = [];
-  let field = "";
-  let quoted = false;
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (quoted) {
-      if (character === '"' && text[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else if (character === '"') {
-        quoted = false;
-      } else {
-        field += character;
-      }
-    } else if (character === '"' && field.length === 0) {
-      quoted = true;
-    } else if (character === delimiter) {
-      row.push(field);
-      field = "";
-    } else if (character === "\n" || character === "\r") {
-      if (character === "\r" && text[index + 1] === "\n") index += 1;
-      row.push(field);
-      if (row.some(value => value.trim())) rows.push(row);
-      row = [];
-      field = "";
-    } else {
-      field += character;
-    }
-  }
-  if (quoted) throw new Error("Die CSV-Datei enthält ein nicht geschlossenes Anführungszeichen.");
-  row.push(field);
-  if (row.some(value => value.trim())) rows.push(row);
-  if (rows.length < 2) throw new Error("Die CSV-Datei muss eine Kopfzeile und mindestens eine Buchung enthalten.");
-  return rows;
-}
-
-const normalizeHeader = value => value.toLocaleLowerCase("de-DE").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-const csvFields = [
-  { key: "date", title: "Datum", required: true, aliases: ["datum", "date", "buchungsdatum", "valuta", "buchungstag"] },
-  { key: "type", title: "Art", aliases: ["art", "typ", "type", "buchungsart", "umsatzart", "sollhaben", "sollhabencode"] },
-  { key: "description", title: "Beschreibung", required: true, aliases: ["beschreibung", "verwendungszweck", "buchungstext", "description", "name", "empfaenger", "auftraggeber", "zahlungsempfaenger"] },
-  { key: "amount", title: "Betrag", aliases: ["betrag", "umsatz", "amount", "summe", "transaktionsbetrag", "brutto", "gross", "grossamount", "net", "netto", "netamount"] },
-  { key: "debit", title: "Soll / Belastung", aliases: ["soll", "solleur", "sollbetrag", "betragsoll", "belastung", "lastschrift", "debit", "ausgabe"] },
-  { key: "credit", title: "Haben / Gutschrift", aliases: ["haben", "habeneur", "habenbetrag", "betraghaben", "gutschrift", "credit", "einnahme"] },
-  { key: "account", title: "Konto", aliases: ["konto", "account", "kontoname"] },
-  { key: "category", title: "Kategorie", aliases: ["kategorie", "category"] },
-];
-
-const csvProfileAliases = {
-  generic: {},
-  sparkasse: {
-    date: ["buchungstag", "valuta"],
-    description: ["buchungstext", "verwendungszweck"],
-    debit: ["soll"],
-    credit: ["haben"],
-  },
-  volksbank: {
-    date: ["buchungstag", "wertstellung"],
-    description: ["buchungstext", "verwendungszweck"],
-    debit: ["soll"],
-    credit: ["haben"],
-  },
-  "deutsche-bank": {
-    date: ["buchungstag", "buchungsdatum"],
-    description: ["buchungstext", "verwendungszweck"],
-    amount: ["betrag", "umsatz"],
-  },
-  paypal: {
-    date: ["datum", "date"],
-    description: ["name", "beschreibung"],
-    amount: ["brutto", "gross", "grossamount", "betrag", "netto", "net", "netamount"],
-    type: ["typ"],
-  },
-};
-
 function renderCsvMapping() {
   csvColumnMapping.replaceChildren(...csvFields.map(field => {
     const label = document.createElement("label");
@@ -1297,129 +1161,83 @@ function renderCsvMapping() {
   }));
 }
 
-function parseCsvDate(value) {
-  const input = value.trim();
-  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(input);
-  const local = /^(\d{1,2})[./](\d{1,2})[./](\d{4})$/.exec(input);
-  const parts = iso
-    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
-    : local ? [Number(local[3]), Number(local[2]), Number(local[1])] : null;
-  if (!parts) return null;
-  const [year, month, day] = parts;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-    ? `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-    : null;
-}
-
-function parseCsvAmount(value) {
-  const raw = value.trim().replace(/[€$£\s]/g, "").replace(/\u2212/g, "-");
-  const accountingNegative = raw.startsWith("(") && raw.endsWith(")");
-  let normalized = accountingNegative ? raw.slice(1, -1) : raw;
-  if (normalized.includes(",") && normalized.includes(".")) {
-    normalized = normalized.lastIndexOf(",") > normalized.lastIndexOf(".")
-      ? normalized.replace(/\./g, "").replace(",", ".")
-      : normalized.replace(/,/g, "");
-  } else if (normalized.includes(",")) {
-    normalized = normalized.replace(",", ".");
-  }
-  const amount = Number(normalized);
-  return Number.isFinite(amount) && amount !== 0
-    ? { amount: Math.round(Math.abs(amount) * 100) / 100, sign: accountingNegative ? -1 : Math.sign(amount) }
-    : null;
-}
-
-function parseCsvType(value) {
-  const type = normalizeHeader(value);
-  if (["income", "einnahme", "eingang", "haben", "h", "credit", "gutschrift"].includes(type)) return "INCOME";
-  if (["expense", "ausgabe", "ausgang", "soll", "s", "debit", "lastschrift", "belastung"].includes(type)) return "EXPENSE";
-  return null;
-}
-
 function getCsvMappedValue(record, field) {
   const selected = csvColumnMapping.querySelector(`[data-csv-field="${field}"]`)?.value;
   return selected === "" || selected === undefined ? "" : record[Number(selected)]?.trim() || "";
 }
 
-function csvDuplicateKey(transaction) {
-  return JSON.stringify([
-    transaction.transaction_date,
-    transaction.type,
-    transaction.account,
-    transaction.description.trim().toLocaleLowerCase("de-DE"),
-    Math.round(Number(transaction.amount) * 100),
-  ]);
-}
-
 async function classifyCsvRows() {
   if (!csvRecords.length) return;
-  const categories = await loadTransactionCategories();
-  const seen = new Set();
-  csvPreparedRows = csvRecords.map((record, index) => {
-    const date = parseCsvDate(getCsvMappedValue(record, "date"));
-    const explicitType = parseCsvType(getCsvMappedValue(record, "type"));
-    const description = getCsvMappedValue(record, "description");
-    const rawAmount = getCsvMappedValue(record, "amount");
-    const debitValue = getCsvMappedValue(record, "debit");
-    const creditValue = getCsvMappedValue(record, "credit");
-    const debit = debitValue ? parseCsvAmount(debitValue) : null;
-    const credit = creditValue ? parseCsvAmount(creditValue) : null;
-    const bothColumnsFilled = Boolean(debit?.amount && credit?.amount);
-    const parsedAmount = bothColumnsFilled ? null
-      : credit?.amount ? { amount: credit.amount, sign: 1 }
-        : debit?.amount ? { amount: debit.amount, sign: -1 }
-          : rawAmount ? parseCsvAmount(rawAmount) : null;
-    const type = explicitType || (parsedAmount?.sign < 0 ? "EXPENSE" : parsedAmount?.sign > 0 ? "INCOME" : null);
-    const amount = parsedAmount?.amount;
-    const accountText = normalizeHeader(getCsvMappedValue(record, "account"));
-    const account = !accountText
-      ? csvProfile.value === "paypal" ? "PAYPAL" : "BANK"
-      : ["bank", "bankkonto", "girokonto"].includes(accountText) ? "BANK"
-      : ["paypal", "paypalkonto"].includes(accountText) ? "PAYPAL" : null;
-    const category = getCsvMappedValue(record, "category") || "Sonstiges";
-    const error = !date ? "Datum ungültig"
-      : date < financeStartDate ? `Buchungen vor dem ${formatDate(financeStartDate)} liegen außerhalb der Verwaltung`
-      : bothColumnsFilled ? "Soll und Haben sind beide befüllt"
-        : !type ? "Buchungsart ungültig"
-        : !description ? "Beschreibung fehlt"
-          : !parsedAmount ? "Betrag ungültig"
-            : !account ? "Konto nicht erkannt"
-              : description.length > 120 ? "Beschreibung zu lang"
-                : !categories.includes(category) ? `Kategorie „${category}“ existiert nicht` : "";
-    const transaction = { transaction_date: date, type, account, description, amount, category };
-    const key = error ? "" : csvDuplicateKey(transaction);
-    const duplicateInFile = key && seen.has(key);
-    if (key) seen.add(key);
-    return { line: index + 2, transaction, error, key, duplicateInFile, duplicateInDatabase: false };
-  });
-  await detectCsvDuplicates();
-  renderCsvPreview();
+  const requestId = ++csvClassificationRequestId;
+  try {
+    const categories = await loadTransactionCategories();
+    if (requestId !== csvClassificationRequestId) return;
+    const seen = new Set();
+    csvPreparedRows = csvRecords.map((record, index) => {
+      const date = parseCsvDate(getCsvMappedValue(record, "date"));
+      const explicitType = parseCsvType(getCsvMappedValue(record, "type"));
+      const description = getCsvMappedValue(record, "description");
+      const rawAmount = getCsvMappedValue(record, "amount");
+      const debitValue = getCsvMappedValue(record, "debit");
+      const creditValue = getCsvMappedValue(record, "credit");
+      const debit = debitValue ? parseCsvAmount(debitValue) : null;
+      const credit = creditValue ? parseCsvAmount(creditValue) : null;
+      const bothColumnsFilled = Boolean(debit?.amount && credit?.amount);
+      const parsedAmount = bothColumnsFilled ? null
+        : credit?.amount ? { amount: credit.amount, sign: 1 }
+          : debit?.amount ? { amount: debit.amount, sign: -1 }
+            : rawAmount ? parseCsvAmount(rawAmount) : null;
+      const type = explicitType || (parsedAmount?.sign < 0 ? "EXPENSE" : parsedAmount?.sign > 0 ? "INCOME" : null);
+      const amount = parsedAmount?.amount;
+      const accountText = normalizeHeader(getCsvMappedValue(record, "account"));
+      const account = !accountText
+        ? csvProfile.value === "paypal" ? "PAYPAL" : "BANK"
+        : ["bank", "bankkonto", "girokonto"].includes(accountText) ? "BANK"
+        : ["paypal", "paypalkonto"].includes(accountText) ? "PAYPAL" : null;
+      const category = getCsvMappedValue(record, "category") || "Sonstiges";
+      const error = !date ? "Datum ungültig"
+        : date < financeStartDate ? `Buchungen vor dem ${formatDate(financeStartDate)} liegen außerhalb der Verwaltung`
+        : bothColumnsFilled ? "Soll und Haben sind beide befüllt"
+          : !type ? "Buchungsart ungültig"
+          : !description ? "Beschreibung fehlt"
+            : !parsedAmount ? "Betrag ungültig"
+              : !account ? "Konto nicht erkannt"
+                : description.length > 120 ? "Beschreibung zu lang"
+                  : !categories.includes(category) ? `Kategorie „${category}“ existiert nicht` : "";
+      const transaction = { transaction_date: date, type, account, description, amount, category };
+      const key = error ? "" : csvDuplicateKey(transaction);
+      const duplicateInFile = key && seen.has(key);
+      if (key) seen.add(key);
+      return { line: index + 2, transaction, error, key, duplicateInFile, duplicateInDatabase: false };
+    });
+    const preparedRows = csvPreparedRows;
+    await detectCsvDuplicates(preparedRows, requestId);
+    if (requestId !== csvClassificationRequestId) return;
+    renderCsvPreview();
+  } catch (error) {
+    if (requestId === csvClassificationRequestId) throw error;
+  }
 }
 
-async function detectCsvDuplicates() {
-  const dates = [...new Set(csvPreparedRows.filter(row => !row.error).map(row => row.transaction.transaction_date))];
+async function detectCsvDuplicates(rows, requestId) {
+  const dates = [...new Set(rows.filter(row => !row.error).map(row => row.transaction.transaction_date))];
   if (!dates.length) return;
   const existing = new Set();
-  let offset = 0;
-  while (true) {
-    const { data, error } = await supabaseClient.from("transactions")
-      .select("transaction_date, type, account, description, amount")
-      .in("transaction_date", dates)
-      .is("deleted_at", null)
-      .range(offset, offset + 999);
-    if (error) throw error;
-    (data || []).forEach(item => existing.add(csvDuplicateKey(item)));
-    if (!data || data.length < 1000) break;
-    offset += data.length;
-  }
-  csvPreparedRows.forEach(row => {
+  const existingRows = await transactionService.loadRowsForDates(dates);
+  if (requestId !== csvClassificationRequestId) return;
+  existingRows.forEach(item => existing.add(csvDuplicateKey(item)));
+  rows.forEach(row => {
     row.duplicateInDatabase = Boolean(row.key && existing.has(row.key));
   });
 }
 
 function renderCsvPreview() {
   const labels = ["Zeile", "Datum", "Art", "Konto", "Beschreibung", "Betrag", "Kategorie", "Prüfung"];
-  csvPreview.replaceChildren(...csvPreparedRows.map(row => {
+  const pageCount = Math.max(1, Math.ceil(csvPreparedRows.length / csvPreviewPageSize));
+  csvPreviewPage = Math.min(csvPreviewPage, pageCount - 1);
+  const start = csvPreviewPage * csvPreviewPageSize;
+  const pageRows = csvPreparedRows.slice(start, start + csvPreviewPageSize);
+  csvPreview.replaceChildren(...pageRows.map(row => {
     const tr = document.createElement("tr");
     const values = [
       row.line,
@@ -1448,6 +1266,11 @@ function renderCsvPreview() {
   const importable = csvPreparedRows.filter(row => !row.error && !row.duplicateInFile && !row.duplicateInDatabase).length;
   const skipped = csvPreparedRows.length - importable;
   csvImportSubmit.disabled = !isAdministrator() || importable === 0;
+  csvPreviewPrevious.disabled = csvPreviewPage === 0;
+  csvPreviewNext.disabled = csvPreviewPage >= pageCount - 1;
+  csvPreviewPageStatus.textContent = csvPreparedRows.length
+    ? `Vorschau ${start + 1}–${Math.min(start + pageRows.length, csvPreparedRows.length)} von ${csvPreparedRows.length} · Seite ${csvPreviewPage + 1} von ${pageCount}`
+    : "Keine Vorschau vorhanden.";
   csvImportStatus.textContent = `${importable} importierbar · ${skipped} fehlerhaft oder doppelt übersprungen.`;
 }
 
@@ -1459,13 +1282,8 @@ async function setTransactionReconciled(transaction) {
     : `Abgleich für "${transaction.description}" wieder aufheben?`;
   if (!window.confirm(message)) return;
   try {
-    const { data, error } = await supabaseClient.from("transactions")
-      .update({ reconciled_at: reconciled ? new Date().toISOString() : null })
-      .eq("id", transaction.id)
-      .is("deleted_at", null)
-      .select("id, reconciled_at");
-    if (error) throw error;
-    if (!data?.length) throw new Error("Die Buchung wurde nicht aktualisiert. Bitte Berechtigungen prüfen.");
+    const data = await transactionService.setReconciled(transaction.id, reconciled);
+    if (!data.length) throw new Error("Die Buchung wurde nicht aktualisiert. Bitte Berechtigungen prüfen.");
     setWriteSetupStatus(reconciled ? "Abgleich gespeichert." : "Abgleich aufgehoben.");
     await refreshTransactions();
   } catch (error) {
@@ -1480,14 +1298,8 @@ async function reconcileSelectedTransactions() {
   if (!window.confirm(`${ids.length} ausgewählte Buchung${ids.length === 1 ? "" : "en"} als abgeglichen markieren?`)) return;
   bulkReconcileButton.disabled = true;
   try {
-    const { data, error } = await supabaseClient.from("transactions")
-      .update({ reconciled_at: new Date().toISOString() })
-      .in("id", ids)
-      .is("deleted_at", null)
-      .is("reconciled_at", null)
-      .select("id");
-    if (error) throw error;
-    const updatedCount = data?.length || 0;
+    const data = await transactionService.reconcileMany(ids);
+    const updatedCount = data.length;
     selectedTransactionIds.clear();
     setWriteSetupStatus(`${updatedCount} Buchung${updatedCount === 1 ? "" : "en"} abgeglichen.`);
     await refreshTransactions();
@@ -1502,12 +1314,17 @@ async function reconcileSelectedTransactions() {
 
 async function openCsvImport() {
   if (!isAdministrator()) return;
+  csvClassificationRequestId += 1;
   csvImportForm.reset();
   csvColumnMapping.replaceChildren();
   csvPreview.replaceChildren();
   csvPreparedRows = [];
   csvRecords = [];
   csvHeaders = [];
+  csvPreviewPage = 0;
+  csvPreviewPrevious.disabled = true;
+  csvPreviewNext.disabled = true;
+  csvPreviewPageStatus.textContent = "Keine Vorschau vorhanden.";
   csvImportSubmit.disabled = true;
   csvImportStatus.textContent = "";
   csvImportDialog.showModal();
@@ -1516,8 +1333,8 @@ async function openCsvImport() {
 function downloadCsvExample() {
   const sample = [
     "Datum;Beschreibung;Soll;Haben;Konto;Kategorie",
-    "2026-01-15;Monatsbeitrag;;25,00;Bankkonto;Prinzenkröten",
-    "2026-01-20;Platzmiete;120,00;;Bankkonto;Platzmiete",
+    "2026-10-15;Monatsbeitrag;;25,00;Bankkonto;Prinzenkröten",
+    "2026-10-20;Platzmiete;120,00;;Bankkonto;Platzmiete",
   ].join("\r\n");
   const url = URL.createObjectURL(new Blob(["\uFEFF", sample], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
@@ -1528,11 +1345,8 @@ function downloadCsvExample() {
 }
 
 async function loadRecurringTransactions() {
-  const { data, error } = await supabaseClient.from("recurring_transactions")
-    .select("id, type, account, description, amount, category, day_of_month, next_date, interval_type, end_date, active")
-    .order("next_date");
-  if (error) throw error;
-  recurringList.replaceChildren(...(data || []).map(schedule => {
+  const schedules = await recurringService.load();
+  recurringList.replaceChildren(...schedules.map(schedule => {
     const item = document.createElement("li");
     const description = document.createElement("span");
     const intervalName = { weekly: "wöchentlich", monthly: "monatlich", yearly: "jährlich" }[schedule.interval_type] || "monatlich";
@@ -1575,9 +1389,7 @@ function editRecurringSchedule(schedule) {
 async function toggleRecurringSchedule(schedule) {
   if (!isAdministrator()) return;
   try {
-    const { error } = await supabaseClient.from("recurring_transactions")
-      .update({ active: !schedule.active }).eq("id", schedule.id);
-    if (error) throw error;
+    await recurringService.setActive(schedule.id, !schedule.active);
     await loadRecurringTransactions();
     recurringStatus.textContent = "Wiederholung aktualisiert.";
   } catch (error) {
@@ -1592,9 +1404,8 @@ async function createDueRecurringTransactions() {
   button.disabled = true;
   recurringStatus.textContent = "Fällige Buchungen werden geprüft …";
   try {
-    const { data, error } = await supabaseClient.rpc("create_due_recurring_transactions");
-    if (error) throw error;
-    recurringStatus.textContent = `${data} fällige Buchung${data === 1 ? "" : "en"} erstellt.`;
+    const count = await recurringService.createDue();
+    recurringStatus.textContent = `${count} fällige Buchung${count === 1 ? "" : "en"} erstellt.`;
     await Promise.all([loadRecurringTransactions(), refreshTransactions(), refreshContributions()]);
   } catch (error) {
     recurringStatus.textContent = `Wiederholungsbuchungen konnten nicht erzeugt werden: ${error.message}`;
@@ -1610,12 +1421,7 @@ async function openTransactionAudit(transaction) {
   auditDialog.showModal();
   let entries;
   try {
-    const { data, error } = await supabaseClient.from("transaction_audit_log")
-      .select("action, actor_email, occurred_at, old_data, new_data")
-      .eq("transaction_id", transaction.id)
-      .order("occurred_at", { ascending: false });
-    if (error) throw error;
-    entries = data || [];
+    entries = await transactionService.loadAudit(transaction.id);
   } catch (error) {
     auditStatus.textContent = `Verlauf konnte nicht geladen werden: ${error.message}`;
     return;
@@ -1699,9 +1505,13 @@ async function exportTransactionsAsPdf() {
     let total = null;
     const maxPdfRows = 5000;
     while (total === null || offset < total) {
-      const pageQuery = createExportQuery(year, pageSizeForExport, offset, exportFilters);
-      const { data, count, error } = await pageQuery;
-      if (error) throw error;
+      const { data, count } = await transactionService.loadExportPage({
+        filters: exportFilters,
+        dateRange,
+        offset,
+        limit: pageSizeForExport,
+        includeCount: offset === 0,
+      });
       total ??= count ?? data?.length ?? 0;
       if (total > maxPdfRows) {
         throw new Error(`Der Export umfasst ${total} Buchungen und überschreitet das Limit von ${maxPdfRows}. Bitte Zeitraum, Konto oder Filter eingrenzen.`);
@@ -1761,46 +1571,9 @@ async function exportTransactionsAsPdf() {
   }
 }
 
-const exportColumnOptions = [
-  ["transaction_date", "Datum"],
-  ["account", "Konto"],
-  ["description", "Beschreibung"],
-  ["type", "Art"],
-  ["amount", "Betrag"],
-  ["category", "Kategorie"],
-  ["reconciled", "Abgleichstatus"],
-  ["reconciled_at", "Abgeglichen am"],
-  ["reconciled_by_email", "Abgeglichen von"],
-];
-
-function exportColumnValue(item, key) {
-  if (key === "account") return item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
-  if (key === "type") return item.type === "INCOME" ? "Einnahme" : "Ausgabe";
-  if (key === "amount") return Number(item.amount).toFixed(2).replace(".", ",");
-  if (key === "reconciled") return item.reconciled_at ? "Ja" : "Nein";
-  return item[key] || "";
-}
-
 async function loadAuditEntriesForExport(rows) {
-  const entries = [];
   const ids = rows.map(row => row.id);
-  for (let index = 0; index < ids.length; index += 100) {
-    const chunk = ids.slice(index, index + 100);
-    let offset = 0;
-    while (true) {
-      const { data, error } = await supabaseClient.from("transaction_audit_log")
-        .select("transaction_id, action, actor_email, occurred_at, old_data, new_data")
-        .in("transaction_id", chunk)
-        .order("occurred_at", { ascending: false })
-        .range(offset, offset + 499);
-      if (error) throw error;
-      entries.push(...(data || []));
-      if (entries.length > 10000) throw new Error("Der Änderungsverlauf umfasst mehr als 10.000 Einträge. Bitte den Zeitraum verkleinern.");
-      if (!data?.length || data.length < 500) break;
-      offset += data.length;
-    }
-  }
-  return entries;
+  return transactionService.loadAuditForExport(ids);
 }
 
 async function exportTransactionsAsCsv(selectedColumns, includeAudit) {
@@ -1817,8 +1590,13 @@ async function exportTransactionsAsCsv(selectedColumns, includeAudit) {
     let offset = 0;
     let total = null;
     while (total === null || offset < total) {
-      const { data, count, error } = await createExportQuery(year, pageSizeForExport, offset, filters);
-      if (error) throw error;
+      const { data, count } = await transactionService.loadExportPage({
+        filters,
+        dateRange,
+        offset,
+        limit: pageSizeForExport,
+        includeCount: offset === 0,
+      });
       total ??= count ?? data?.length ?? 0;
       if (total > maxCsvRows) {
         throw new Error(`Der Export umfasst ${total} Buchungen und überschreitet das Limit von ${maxCsvRows}. Bitte Zeitraum, Konto oder Filter eingrenzen.`);
@@ -1828,30 +1606,12 @@ async function exportTransactionsAsCsv(selectedColumns, includeAudit) {
       setFinanceStatus(`CSV-Export: ${rows.length} von ${total} Buchungen geladen …`);
       if (!data?.length || data.length < pageSizeForExport) break;
     }
-    const quote = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
-    const safeText = value => /^[\s\u0000-\u001f]*[=+\-@]/.test(String(value ?? "")) ? `'${value}` : value;
-    const columns = exportColumnOptions.filter(([key]) => selectedColumns.includes(key));
-    const lines = [
-      columns.map(([, label]) => quote(label)).join(";"),
-      ...rows.map(item => columns.map(([key]) => quote(safeText(exportColumnValue(item, key)))).join(";")),
-    ];
+    let auditEntries = [];
     if (includeAudit) {
       setFinanceStatus(`CSV-Export: Änderungsverlauf für ${rows.length} Buchungen wird geladen …`);
-      const auditEntries = await loadAuditEntriesForExport(rows);
-      const byId = new Map(rows.map(row => [row.id, row.description]));
-      lines.push("", [quote("Änderungsverlauf"), quote("Buchungs-ID"), quote("Beschreibung"), quote("Zeitpunkt"), quote("Aktion"), quote("Benutzer"), quote("Vorher"), quote("Nachher")].join(";"));
-      lines.push(...auditEntries.map(entry => [
-        "",
-        entry.transaction_id,
-        safeText(byId.get(entry.transaction_id) || ""),
-        entry.occurred_at,
-        safeText(entry.action),
-        safeText(entry.actor_email),
-        safeText(JSON.stringify(entry.old_data || {})),
-        safeText(JSON.stringify(entry.new_data || {})),
-      ].map(quote).join(";")));
+      auditEntries = await loadAuditEntriesForExport(rows);
     }
-    const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["\uFEFF", buildCsvText(rows, selectedColumns, auditEntries, includeAudit)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -1864,24 +1624,6 @@ async function exportTransactionsAsCsv(selectedColumns, includeAudit) {
   } finally {
     exportCsvTransactions.disabled = false;
   }
-}
-
-function createExportQuery(year, limit, offset, filters) {
-  const dateRange = getEffectiveDateRange(year);
-  let query = supabaseClient.from("transactions")
-    .select("id, type, account, description, amount, transaction_date, category, reconciled_at, reconciled_by_email", offset === 0 ? { count: "exact" } : {})
-    .gte("transaction_date", dateRange.start)
-    .lte("transaction_date", dateRange.end)
-    .is("deleted_at", null)
-    .order("transaction_date", { ascending: false })
-    .order("id", { ascending: false })
-    .range(offset, offset + limit - 1);
-  if (filters.account !== "ALL") query = query.eq("account", filters.account);
-  if (filters.type !== "ALL") query = query.eq("type", filters.type);
-  if (filters.search) query = query.or(`description.ilike.%${filters.search}%,category.ilike.%${filters.search}%`);
-  if (filters.reconciliation === "OPEN") query = query.is("reconciled_at", null);
-  if (filters.reconciliation === "RECONCILED") query = query.not("reconciled_at", "is", null);
-  return query;
 }
 
 document.querySelector("#copyright-year").textContent = new Date().getFullYear();
@@ -1899,7 +1641,7 @@ document.querySelector("#request-password-reset").addEventListener("click", asyn
   }
   status.textContent = "Wiederherstellungslink wird angefordert …";
   const redirectTo = `${window.location.origin}${window.location.pathname}`;
-  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+  const { error } = await authService.requestPasswordReset(email, redirectTo);
   status.textContent = error
     ? `Passwort-Reset konnte nicht angefordert werden: ${error.message}`
     : "Falls ein Konto zu dieser Adresse existiert, wurde ein Wiederherstellungslink versendet.";
@@ -1912,7 +1654,7 @@ passwordResetForm.addEventListener("submit", async event => {
     status.textContent = "Die Passwörter stimmen nicht überein.";
     return;
   }
-  const { error } = await supabaseClient.auth.updateUser({ password });
+  const { error } = await authService.updatePassword(password);
   if (error) {
     status.textContent = `Passwort konnte nicht geändert werden: ${error.message}`;
     return;
@@ -1944,6 +1686,7 @@ csvProfile.addEventListener("change", () => {
   });
 });
 csvFile.addEventListener("change", async () => {
+  const requestId = ++csvClassificationRequestId;
   csvImportSubmit.disabled = true;
   csvImportStatus.textContent = "";
   csvPreview.replaceChildren();
@@ -1951,10 +1694,19 @@ csvFile.addEventListener("change", async () => {
   csvPreparedRows = [];
   csvRecords = [];
   csvHeaders = [];
+  csvPreviewPage = 0;
+  csvPreviewPrevious.disabled = true;
+  csvPreviewNext.disabled = true;
+  csvPreviewPageStatus.textContent = "Keine Vorschau vorhanden.";
   try {
     const file = csvFile.files?.[0];
     if (!file) return;
-    const rows = parseCsv((await file.text()).replace(/^\uFEFF/, ""));
+    if (file.size > csvMaxFileBytes) {
+      throw new Error(`Die Datei ist größer als das Limit von ${Math.round(csvMaxFileBytes / 1024 / 1024)} MB.`);
+    }
+    const text = await file.text();
+    if (requestId !== csvClassificationRequestId) return;
+    const rows = parseCsv(text.replace(/^\uFEFF/, ""));
     if (rows.length - 1 > 500) throw new Error("Pro Import sind höchstens 500 Datenzeilen erlaubt.");
     csvHeaders = rows[0].map(value => value.trim());
     csvRecords = rows.slice(1);
@@ -1964,6 +1716,17 @@ csvFile.addEventListener("change", async () => {
     csvImportStatus.textContent = `CSV konnte nicht vorbereitet werden: ${error.message}`;
   }
 });
+csvPreviewPrevious.addEventListener("click", () => {
+  if (csvPreviewPage === 0) return;
+  csvPreviewPage -= 1;
+  renderCsvPreview();
+});
+csvPreviewNext.addEventListener("click", () => {
+  const lastPage = Math.max(0, Math.ceil(csvPreparedRows.length / csvPreviewPageSize) - 1);
+  if (csvPreviewPage >= lastPage) return;
+  csvPreviewPage += 1;
+  renderCsvPreview();
+});
 csvImportForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (!isAdministrator()) return;
@@ -1972,9 +1735,7 @@ csvImportForm.addEventListener("submit", async event => {
   csvImportSubmit.disabled = true;
   csvImportStatus.textContent = `${rows.length} Buchungen werden importiert …`;
   try {
-    const { error } = await supabaseClient.from("transactions")
-      .insert(rows.map(row => row.transaction));
-    if (error) throw error;
+    await transactionService.importMany(rows.map(row => row.transaction));
     rows.forEach(row => { row.duplicateInDatabase = true; });
     renderCsvPreview();
     csvImportStatus.textContent = `${rows.length} Buchungen importiert; ${csvPreparedRows.length - rows.length} fehlerhafte oder doppelte Zeilen übersprungen.`;
@@ -2028,14 +1789,10 @@ recurringForm.addEventListener("submit", async event => {
     recurringStatus.textContent = "Die letzte Fälligkeit darf nicht vor der ersten Fälligkeit liegen.";
     return;
   }
-  const query = recurringEditId
-    ? supabaseClient.from("recurring_transactions").update(payload).eq("id", recurringEditId)
-    : supabaseClient.from("recurring_transactions").insert({ ...payload, created_by: session.user.id });
   const submit = recurringForm.querySelector('button[type="submit"]');
   submit.disabled = true;
   try {
-    const { error } = await query;
-    if (error) throw error;
+    await recurringService.save(payload, recurringEditId, session.user.id);
   } catch (error) {
     recurringStatus.textContent = `Wiederholung konnte nicht gespeichert werden: ${error.message}`;
     return;
@@ -2078,15 +1835,11 @@ document.querySelector("#contribution-settings-form").addEventListener("submit",
     return;
   }
   try {
-    const { error } = await supabaseClient.from("team_contribution_settings")
-      .update({
-        bank_opening_balance: bankBalance,
-        paypal_opening_balance: paypalBalance,
-        updated_at: new Date().toISOString(),
-        updated_by: session.user.id,
-      })
-      .eq("id", 1);
-    if (error) throw error;
+    await contributionService.updateSettings({
+      bankBalance,
+      paypalBalance,
+      userId: session.user.id,
+    });
     contributionAdminStatus.textContent = "Startsalden gespeichert.";
     await refreshTransactions();
     await refreshContributions();
@@ -2104,11 +1857,7 @@ document.querySelector("#contribution-rate-form").addEventListener("submit", asy
     return;
   }
   try {
-    const { error } = await supabaseClient.rpc("set_team_contribution_rate", {
-      p_quarter_start: effectiveQuarter,
-      p_quarterly_amount: amount,
-    });
-    if (error) throw error;
+    await contributionService.setRate({ quarterStart: effectiveQuarter, amount });
     contributionAdminStatus.textContent = `Beitragssatz ab ${quarterLabel(effectiveQuarter)} gespeichert.`;
     await refreshContributions();
   } catch (error) {
@@ -2130,8 +1879,7 @@ document.querySelector("#contribution-member-form").addEventListener("submit", a
   const name = document.querySelector("#contribution-member-name").value.trim();
   if (!name) return;
   try {
-    const { error } = await supabaseClient.from("team_members").insert({ name });
-    if (error) throw error;
+    await contributionService.addMember(name);
     form.reset();
     contributionAdminStatus.textContent = `${name} wurde hinzugefügt.`;
     await refreshContributions();
@@ -2166,12 +1914,11 @@ document.querySelector("#contribution-payment-form").addEventListener("submit", 
     return;
   }
   try {
-    const { error } = await supabaseClient.rpc("record_team_contribution_payment", {
-      p_member_id: memberId,
-      p_transaction_id: transactionId,
-      p_quarter_starts: quarterStarts,
+    await contributionService.recordPayment({
+      memberId,
+      transactionId,
+      quarterStarts,
     });
-    if (error) throw error;
     form.reset();
     contributionAdminStatus.textContent = `Zahlung über ${money(transaction.amount)} für ${count} Quartal${count === 1 ? "" : "e"} zugeordnet.`;
     await refreshContributions();
@@ -2192,8 +1939,9 @@ categoryManagementForm.addEventListener("submit", async event => {
   if (!isAdministrator()) return;
   const name = document.querySelector("#new-category-name").value.trim();
   if (!name) return;
-  const { error } = await supabaseClient.from("transaction_categories").insert({ name });
-  if (error) {
+  try {
+    await transactionService.addCategory(name);
+  } catch (error) {
     setWriteSetupStatus(`Kategorie anlegen fehlgeschlagen: ${error.message}`, true);
     categoryManagementStatus.textContent = error.code === "23505"
       ? "Diese Kategorie existiert bereits."
@@ -2234,8 +1982,13 @@ function refreshDateRange() {
   dateToFilter.setAttribute("aria-invalid", String(Boolean(isInvalid)));
   currentPage = 0;
   if (isInvalid) {
+    transactionRequests.invalidate();
+    financeContent.setAttribute("aria-busy", "false");
     selectedTransactionIds.clear();
     updateBulkReconcileControls();
+    transactions = [];
+    transactionAnalytics = null;
+    renderTransactions();
     updateActiveFilters();
     setFinanceStatus(isBeforeStart
       ? `Die Verwaltung beginnt am ${formatDate(financeStartDate)}. Frühere Buchungen werden nicht berücksichtigt.`
@@ -2408,14 +2161,8 @@ async function deleteTransaction(transaction) {
   if (!window.confirm(`Buchung "${label}" wirklich löschen?`)) return;
   setFinanceStatus("Buchung wird gelöscht …");
   try {
-    const { data, error } = await supabaseClient
-      .from("transactions")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", transaction.id)
-      .is("deleted_at", null)
-      .select("id, deleted_at");
-    if (error) throw error;
-    if (!data?.length) {
+    const data = await transactionService.setDeleted(transaction.id, true);
+    if (!data.length) {
       throw new Error("Die Buchung wurde nicht gelöscht. Prüfe deine Supabase-UPDATE-Berechtigung.");
     }
     setWriteSetupStatus("Löschen erfolgreich.");
@@ -2432,13 +2179,8 @@ async function restoreTransaction(transaction) {
   if (!isAdministrator()) return;
   if (!window.confirm(`Buchung "${transaction.description}" wiederherstellen?`)) return;
   try {
-    const { data, error } = await supabaseClient.from("transactions")
-      .update({ deleted_at: null })
-      .eq("id", transaction.id)
-      .not("deleted_at", "is", null)
-      .select("id");
-    if (error) throw error;
-    if (!data?.length) throw new Error("Die Buchung wurde nicht wiederhergestellt. Prüfe die Supabase-Berechtigungen.");
+    const data = await transactionService.setDeleted(transaction.id, false);
+    if (!data.length) throw new Error("Die Buchung wurde nicht wiederhergestellt. Prüfe die Supabase-Berechtigungen.");
     await refreshTransactions();
     await refreshContributions();
     setFinanceStatus("Buchung wiederhergestellt.", "status-success");
@@ -2456,11 +2198,13 @@ document.querySelector("#login-form").addEventListener("submit", async event => 
   submit.textContent = "Anmeldung läuft …";
   status.textContent = "";
   try {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email: document.querySelector("#email").value, password: document.querySelector("#password").value });
-    if (error) throw error;
+    const nextSession = await authService.signIn(
+      document.querySelector("#email").value,
+      document.querySelector("#password").value,
+    );
     document.querySelector("#login-form").reset();
     loginDialog.close();
-    setAuthenticated(data.session);
+    setAuthenticated(nextSession);
   } catch (error) {
     status.textContent = `Anmeldung fehlgeschlagen: ${error.message}`;
   } finally {
@@ -2470,8 +2214,11 @@ document.querySelector("#login-form").addEventListener("submit", async event => 
 });
 
 document.querySelector("#logout-button").addEventListener("click", async () => {
-  const { error } = await supabaseClient.auth.signOut();
-  if (error) authState.textContent = `Abmeldung fehlgeschlagen: ${error.message}`;
+  try {
+    await authService.signOut();
+  } catch (error) {
+    authState.textContent = `Abmeldung fehlgeschlagen: ${error.message}`;
+  }
 });
 
 document.querySelector("#transaction-form").addEventListener("submit", async event => {
@@ -2500,11 +2247,7 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
   status.textContent = "";
   const wasEditing = Boolean(editingTransaction);
   try {
-    const query = wasEditing
-      ? supabaseClient.from("transactions").update(payload).eq("id", editingTransaction.id).select("id")
-      : supabaseClient.from("transactions").insert(payload);
-    const { data, error } = await query;
-    if (error) throw error;
+    const data = await transactionService.save(payload, wasEditing ? editingTransaction.id : null);
     if (wasEditing && !data?.length) {
       throw new Error("Die Buchung wurde nicht geändert. Prüfe deine Supabase-UPDATE-Berechtigung.");
     }
@@ -2526,7 +2269,7 @@ document.querySelector("#transaction-form").addEventListener("submit", async eve
 
 if (supabaseClient) {
   loadSavedFilters();
-  supabaseClient.auth.onAuthStateChange((event, nextSession) => {
+  authService.onAuthStateChange((event, nextSession) => {
     if (event === "PASSWORD_RECOVERY") {
       setAuthenticated(nextSession);
       passwordResetDialog.showModal();
@@ -2539,13 +2282,11 @@ if (supabaseClient) {
     }
     setAuthenticated(nextSession);
   });
-  supabaseClient.auth.getSession().then(({ data, error }) => {
-    if (error) {
-      setAuthenticated(null);
-      authState.textContent = `Authentifizierung fehlgeschlagen: ${error.message}`;
-    } else {
-      setAuthenticated(data.session);
-    }
+  authService.getSession().then(nextSession => {
+    setAuthenticated(nextSession);
+  }).catch(error => {
+    setAuthenticated(null);
+    authState.textContent = `Authentifizierung fehlgeschlagen: ${error.message}`;
   });
 } else {
   setAuthenticated(null);
