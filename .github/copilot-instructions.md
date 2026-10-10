@@ -43,7 +43,7 @@ This repo auto-updates `CHANGELOG.md` via the pre-commit hook.
 - `src/supabase-config.js`: browser-safe Supabase URL and anon key. Do not add the service-role key here.
 - `supabase/base-schema.sql`: initial database schema for a fresh project.
 - `supabase/schema.sql`: incremental schema changes and policies. This file is the main migration source for any database change.
-- The quarterly-contribution overview is part of the finance page. `team_members`, contribution settings (including opening account balances), payment records, and quarter allocations live in `supabase/schema.sql`; `record_team_contribution_payment` validates and atomically records a linked income transaction.
+- The quarterly-contribution overview is part of the finance page. `team_members`, contribution settings/rates (including opening account balances), payment records, and quarter allocations live in `supabase/schema.sql`; `record_team_contribution_payment` validates each quarter against the effective historical rate and stores the applied rate as a snapshot.
 - `.github/workflows/pages.yml`: deploys the static frontend to GitHub Pages.
 - `.github/workflows/conventional-commits.yml`: enforces conventional commit naming in PRs and pushes.
 
@@ -56,6 +56,7 @@ The app is not a backend service; data access is all client-side via Supabase RL
 - Admin access is based on Supabase `app_metadata.role = "admin"`, with `bvbrulez@gmail.com` treated as an admin fallback. Changes to admin role must happen in a trusted Supabase admin context, not by setting `user_metadata` from the browser.
 - Contribution payment status is readable by all authenticated members, while roster, fee, and payment-assignment changes are admin-only. Keep those checks enforced by Supabase RLS/functions as well as the UI.
 - The current finance-management period starts on 2026-10-01. The delta schema migration deliberately deletes earlier transactions, related audit records, and pre-period contribution assignments, then prevents backdated transactions/allocations. It leaves receipt files in storage. Treat changes to this migration's cutoff or cleanup as data-destructive and update README documentation.
+- Active recurring transactions must have a `next_date` on or after 2026-10-01. Contribution-rate entries take effect from their selected quarter until the next entry; payment-quarter snapshots must not be rewritten when rates change.
 - Schema changes should be reflected in `supabase/schema.sql` (and `base-schema.sql` for a new installation), because the README explicitly calls out running the delta script after schema updates.
 - The UI is German-language and organized around finance workflows: authentication, transaction listing, date filters, CSV import/export, recurring entries, and audit/history views.
 - Commits must follow conventional commit format (for example `feat:`, `fix:`, `docs:`, `chore:`) because CI validates this in `.github/workflows/conventional-commits.yml`.

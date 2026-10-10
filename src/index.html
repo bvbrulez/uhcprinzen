@@ -66,11 +66,17 @@
             <details class="contribution-admin" data-admin-only hidden>
               <summary>Verwaltung · Beitrag, Startsalden und Zuordnungen</summary>
               <div class="contribution-admin-content">
-                <form id="contribution-settings-form" class="contribution-settings-form">
+                <form id="contribution-rate-form" class="contribution-settings-form">
                   <label>Beitrag je Quartal (€) <input id="contribution-amount" type="number" min="0.01" step="0.01" required /></label>
+                  <label>Gültig ab Quartal <select id="contribution-rate-quarter" required></select></label>
+                  <button class="button button-secondary" type="submit">Beitragssatz speichern</button>
+                </form>
+                <p class="analytics-caption">Ein neuer Beitragssatz gilt ab dem gewählten Quartal bis zum nächsten eingetragenen Satz. Frühere Zahlungen behalten den damals gültigen Betrag.</p>
+                <ul id="contribution-rate-history" class="contribution-rate-history"></ul>
+                <form id="contribution-settings-form" class="contribution-settings-form">
                   <label>Startsaldo Bankkonto am 01.10.2026 (€) <input id="bank-opening-balance" type="number" step="0.01" required /></label>
                   <label>Startsaldo PayPal am 01.10.2026 (€) <input id="paypal-opening-balance" type="number" step="0.01" required /></label>
-                  <button class="button button-secondary" type="submit">Beträge speichern</button>
+                  <button class="button button-secondary" type="submit">Startsalden speichern</button>
                 </form>
                 <p class="analytics-caption">Die Kontostände zum 01.10.2026 werden als Startsalden verwendet. Alle Buchungen ab diesem Datum werden darauf aufgerechnet.</p>
                 <form id="contribution-member-form" class="contribution-inline-form">
@@ -79,13 +85,15 @@
                 </form>
                 <form id="contribution-payment-form" class="contribution-payment-form">
                   <label>Mitglied <select id="contribution-payment-member" required></select></label>
+                  <label>Einnahmen suchen <input id="contribution-payment-search" type="search" placeholder="Beschreibung durchsuchen" /></label>
                   <label>Einnahme-Buchung <select id="contribution-payment-transaction" required></select></label>
                   <label>Erstes Quartal <select id="contribution-payment-quarter" required></select></label>
                   <label>Anzahl Quartale <select id="contribution-payment-count" required></select></label>
+                  <button id="contribution-payment-load-more" class="button button-secondary" type="button">Ältere Einnahmen laden</button>
                   <button class="button" type="submit">Zahlung zuordnen</button>
-                  <p id="contribution-admin-status" class="status" role="status" aria-live="polite"></p>
                 </form>
-                <p class="analytics-caption">Eine Zahlung kann mehrere aufeinanderfolgende Quartale abdecken. Der Buchungsbetrag muss exakt dem Quartalsbeitrag mal Quartalsanzahl entsprechen. Korrekturen heben die gesamte Zuordnung dieser Einnahme auf.</p>
+                <p class="analytics-caption">Eine Zahlung kann mehrere aufeinanderfolgende Quartale abdecken. Der Buchungsbetrag muss der Summe der für diese Quartale gültigen Beitragssätze entsprechen. Korrekturen heben die gesamte Zuordnung dieser Einnahme auf.</p>
+                <p id="contribution-admin-status" class="status" role="status" aria-live="polite"></p>
               </div>
             </details>
             <p id="contribution-error" class="status status-error" role="alert" hidden></p>

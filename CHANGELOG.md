@@ -2,6 +2,33 @@
 
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
+## 2026-10-10
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-10:
+- `M – .github/copilot-instructions.md`
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/components.css`
+- `M – supabase/schema.sql`
+
+
+### Kassenverwaltung und responsives Design verbessert
+
+- Datumsfilter korrigiert: Ein explizites Startdatum hat Vorrang vor dem
+  Jahresbeginn, während die Verwaltungsgrenze 01.10.2026 erhalten bleibt.
+- Wiederholungsbuchungen zusätzlich in der Datenbank auf Fälligkeiten ab dem
+  01.10.2026 begrenzt.
+- Einnahmen für Beitragszuordnungen durchsuchbar und seitenweise ladbar gemacht.
+- Beitragssätze mit wählbarem Wirksamkeitsquartal historisiert; Vorauszahlungen
+  über Satzwechsel werden anhand der je Quartal gültigen Beträge validiert und
+  bereits erfasste Quartalsbeträge als Snapshot bewahrt.
+- Finanzübersicht visuell vereinfacht und responsives Layout für Filter,
+  Kennzahlen, Beitragsverwaltung und Buchungsliste verbessert; die
+  Gesamtsaldokarte an die Höhe der übrigen Kennzahlenkarten angeglichen.
+- README und repository-spezifische Copilot-Anweisungen aktualisiert.
+
 ## 2026-10-02
 ### Änderungen aus diesem Commit
 

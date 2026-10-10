@@ -472,18 +472,15 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .category-row .category-share { background: #fff3ec; border-radius: 999px; color: #995239; font-size: .68rem; font-weight: 800; padding: .22rem .4rem; }
 .analytics-empty { background: rgb(255 255 255 / 75%); border: 1px dashed #cbdcd4; border-radius: .75rem; color: var(--muted); margin: 0; padding: 1.1rem; text-align: center; }
 .analytics-data { border-color: #e1eae6; }
-.summary-grid { grid-template-columns: minmax(1.4fr, 1.45fr) repeat(2, minmax(0, 1fr)); }
+.summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .summary-card.balance {
   background: radial-gradient(circle at 100% 0, rgb(255 255 255 / 28%), transparent 48%), linear-gradient(130deg, #164c55, #176b68);
   border-color: #164c55;
   color: #fff;
-  grid-row: span 2;
-  justify-content: center;
-  min-height: 8rem;
-  padding: 1.2rem 1.35rem;
+  min-height: 6.5rem;
 }
 .summary-card.balance span { color: #d1e8df; }
-.summary-card.balance strong { font-size: clamp(1.8rem, 3vw, 2.65rem); letter-spacing: -.045em; }
+.summary-card.balance strong { font-size: clamp(1.45rem, 2.5vw, 1.9rem); letter-spacing: -.035em; }
 .summary-card.income { background: linear-gradient(145deg, #f2fbf6, #e6f5eb); border-color: #c6e6d1; }
 .summary-card.expense { background: linear-gradient(145deg, #fff8f5, #ffefea); border-color: #f0d4cb; }
 .account-summary { align-items: center; gap: .7rem; }
@@ -681,11 +678,13 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .contribution-admin[open] > summary { border-bottom: 1px solid #e5ede8; }
 .contribution-admin-content { display: grid; gap: .8rem; padding: 1rem; }
 .contribution-inline-form, .contribution-payment-form { align-items: end; display: flex; flex-wrap: wrap; gap: .7rem; }
-.contribution-settings-form { align-items: end; display: grid; gap: .7rem; grid-template-columns: repeat(3, minmax(10rem, 1fr)) auto; }
+.contribution-settings-form { align-items: end; display: grid; gap: .7rem; grid-template-columns: repeat(2, minmax(10rem, 1fr)) auto; }
 .contribution-inline-form label, .contribution-settings-form label, .contribution-payment-form label { color: #294758; display: grid; font-size: .85rem; font-weight: 750; gap: .3rem; }
-.contribution-payment-form { display: grid; grid-template-columns: repeat(4, minmax(8rem, 1fr)) auto; }
+.contribution-payment-form { display: grid; grid-template-columns: repeat(4, minmax(8rem, 1fr)); }
 .contribution-payment-form .status { grid-column: 1 / -1; margin: 0; }
 .contribution-admin-content > .analytics-caption { margin: 0; }
+.contribution-rate-history { color: #526d76; display: flex; flex-wrap: wrap; font-size: .78rem; gap: .35rem 1rem; list-style: none; margin: -.3rem 0 0; padding: 0; }
+.contribution-admin-content > .status { margin: 0; }
 .contribution-table caption { color: var(--muted); padding: .4rem; text-align: left; }
 @media (max-width: 48rem) {
   .contribution-section .section-heading { align-items: flex-start; }
@@ -727,9 +726,9 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .finance-section > .section-heading h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); }
 #auth-state { background: #fff; border-color: #dce8e3; color: #31574b; }
 
-.summary-grid { gap: .85rem; grid-template-columns: minmax(1.35fr, 1.5fr) repeat(2, minmax(0, 1fr)); margin: .7rem 0 .55rem; }
+.summary-grid { gap: .85rem; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: .7rem 0 .55rem; }
 .summary-card { min-width: 0; }
-.summary-card.balance { background: linear-gradient(145deg, #123c42, #1c7469); border: 0; }
+.summary-card.balance { background: linear-gradient(145deg, #123c42, #1c7469); border: 0; grid-row: auto; justify-content: start; min-height: 6.5rem; padding: 1.2rem; }
 .summary-card.income, .summary-card.expense { min-height: 6.5rem; }
 .summary-card span { line-height: 1.4; }
 .summary-period { font-size: .78rem; margin: 0 0 .9rem; }
@@ -837,4 +836,134 @@ dialog { border: 1px solid #e0e9e5; max-width: 34rem; }
   .summary-card { padding: .85rem; }
   .toolbar-actions { grid-template-columns: 1fr; }
   .toolbar-actions .button { width: 100%; }
+}
+
+.site-header { min-height: 4.5rem; }
+main { max-width: 86rem; }
+.finance-section {
+  background: #fff;
+  border-color: #e2e9e6;
+  border-radius: 1.1rem;
+  box-shadow: 0 .5rem 1.5rem rgb(20 52 63 / 6%);
+}
+.finance-section > .section-heading { align-items: center; }
+.summary-card { box-shadow: none; }
+.summary-card.balance { background: #174f50; }
+.summary-card.income { background: #f0f7f2; border-left-color: #5b9b73; }
+.summary-card.expense { background: #fbf3f0; border-left-color: #c47b65; }
+.account-summary, .reconciliation-summary, .contribution-section, .analytics-card, .finance-toolbar {
+  box-shadow: none;
+}
+.contribution-section { background: #fafcfb; border-color: #e2eae5; border-radius: .9rem; }
+.contribution-summary { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+.contribution-metric { border-radius: .7rem; }
+.analytics-card { background: #fff; border-radius: .85rem; }
+.analytics-card::before { width: .18rem; }
+.finance-toolbar { background: #fafcfb; border-radius: .85rem; }
+.filter-controls {
+  display: grid;
+  flex: 1 1 100%;
+  gap: .65rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+.filter-group { min-width: 0; }
+.period-filter-group { grid-column: span 5; }
+.account-filter-group { grid-column: span 3; }
+.booking-filter-group { grid-column: span 4; }
+.filter-group > label { min-width: 0; }
+.filter-group input, .filter-group select { min-width: 0; width: 100%; }
+.filter-controls input[type="search"] { min-width: 0; }
+.date-presets .button { flex: 1 1 auto; }
+.toolbar-actions {
+  border-top: 1px solid #e7eeea;
+  display: flex;
+  justify-content: flex-start;
+  padding-top: .75rem;
+  width: 100%;
+}
+.toolbar-actions .button { width: auto; }
+.contribution-payment-form {
+  align-items: end;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.contribution-payment-form > label:nth-child(3) { grid-column: 1 / -1; }
+.contribution-payment-form > button { width: 100%; }
+.contribution-table .contribution-paid,
+.contribution-table .contribution-not-due,
+.contribution-table .contribution-overdue,
+.contribution-table .contribution-open { min-width: 0; }
+.contribution-table tbody td { overflow-wrap: anywhere; }
+.contribution-rate-history li { background: #f2f6f3; border-radius: 999px; padding: .3rem .65rem; }
+
+@media (max-width: 68rem) {
+  .filter-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .period-filter-group, .booking-filter-group { grid-column: 1 / -1; }
+  .account-filter-group { grid-column: 1 / -1; }
+  .booking-filter-group { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .booking-filter-group legend { grid-column: 1 / -1; }
+}
+
+@media (max-width: 48rem) {
+  main { padding: .8rem .65rem 2rem; }
+  .finance-section { border-radius: .9rem; padding: 1rem; }
+  .finance-section > .section-heading { align-items: flex-start; }
+  .site-header { position: static; }
+  .summary-card { min-width: 0; }
+  .summary-card span { font-size: .68rem; }
+  .summary-card strong { overflow-wrap: anywhere; }
+  .filter-controls { grid-template-columns: minmax(0, 1fr); }
+  .filter-group, .period-filter-group, .account-filter-group, .booking-filter-group { grid-column: 1; }
+  .booking-filter-group { grid-template-columns: minmax(0, 1fr); }
+  .toolbar-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolbar-actions .button { font-size: .8rem; min-width: 0; padding-inline: .45rem; width: 100%; }
+  .toolbar-actions #new-transaction { grid-column: 1 / -1; }
+  .date-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .date-presets .button { min-width: 0; white-space: normal; }
+  .finance-section > .table-scroll { border: 0; }
+  .contribution-section .section-heading { align-items: center; flex-direction: row; }
+  .contribution-section .section-heading > label { align-items: center; flex-direction: row; }
+  .contribution-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contribution-metric { padding: .65rem; }
+  .contribution-metric:last-child { grid-column: auto; }
+  .contribution-table tr { overflow: hidden; }
+  .contribution-table td { grid-template-columns: minmax(4.5rem, 30%) minmax(0, 1fr); }
+  .contribution-table td:last-child { justify-content: stretch; }
+  .contribution-payment-form { grid-template-columns: minmax(0, 1fr); }
+  .contribution-payment-form > label:nth-child(3) { grid-column: auto; }
+  .dialog-form { padding: 1.25rem; }
+}
+
+@media (max-width: 34rem) {
+  .site-header { position: static; }
+  .finance-section { padding: .8rem; }
+  .finance-section > .section-heading { gap: .6rem; }
+  #auth-state { border-radius: .6rem; font-size: .7rem; }
+  .summary-grid { gap: .55rem; }
+  .summary-card { border-radius: .75rem; min-height: 0; padding: .75rem; }
+  .account-summary { align-items: center; flex-direction: row; }
+  .reconciliation-summary { padding: .75rem; }
+  .contribution-section { padding: .7rem; }
+  .contribution-section .section-heading { align-items: flex-start; flex-direction: column; }
+  .contribution-section .section-heading > label { flex-direction: row; }
+  .contribution-summary { gap: .45rem; }
+  .contribution-metric > span { font-size: .62rem; }
+  .contribution-table tr { padding: .45rem .6rem; }
+  .contribution-table td { gap: .2rem .45rem; padding: .45rem 0; }
+  .date-presets { grid-template-columns: 1fr; }
+  .toolbar-actions { grid-template-columns: 1fr; }
+  .toolbar-actions #new-transaction { grid-column: auto; }
+  .pagination { gap: .5rem; }
+  .pagination .button { min-width: 0; padding-inline: .6rem; }
+  .saved-filter-chips { width: 100%; }
+  .active-filters { display: flex; }
+}
+
+@media (max-width: 23rem) {
+  .summary-grid, .account-summary-grid { grid-template-columns: minmax(0, 1fr); }
+  .summary-card.balance { grid-column: auto; }
+  .summary-card:last-child { grid-column: auto; }
+  .contribution-summary { grid-template-columns: minmax(0, 1fr); }
+  .contribution-metric:last-child { grid-column: auto; }
+  .pagination { flex-wrap: wrap; }
+  .pagination .muted { flex: 1 0 100%; order: -1; text-align: center; }
 }

@@ -80,6 +80,9 @@ const contributionPaymentMember = document.querySelector("#contribution-payment-
 const contributionPaymentTransaction = document.querySelector("#contribution-payment-transaction");
 const contributionPaymentQuarter = document.querySelector("#contribution-payment-quarter");
 const contributionPaymentCount = document.querySelector("#contribution-payment-count");
+const contributionPaymentSearch = document.querySelector("#contribution-payment-search");
+const contributionPaymentLoadMore = document.querySelector("#contribution-payment-load-more");
+const contributionRateQuarter = document.querySelector("#contribution-rate-quarter");
 const contributionAdminStatus = document.querySelector("#contribution-admin-status");
 let session = null;
 let transactions = [];
@@ -103,11 +106,16 @@ let teamMembers = [];
 let contributionPayments = [];
 let contributionQuarters = [];
 let contributionIncomeTransactions = [];
+let contributionRates = [];
 let quarterlyContributionAmount = 75;
 let bankOpeningBalance = 0;
 let paypalOpeningBalance = 0;
 let loadingContributions = false;
 let contributionRefreshPending = false;
+let contributionIncomeRequestId = 0;
+let contributionIncomeLoading = false;
+let contributionIncomeHasMore = false;
+let contributionIncomeSearchTimer = null;
 
 const money = value => `${(Number(value) || 0).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("de-DE");
@@ -123,7 +131,7 @@ dateToFilter.min = financeStartDate;
 function resolveDateRange(year, startDate, endDate, today) {
   const yearStart = `${year}-01-01`;
   const minimumStart = yearStart < financeStartDate ? financeStartDate : yearStart;
-  const start = startDate && startDate > financeStartDate ? startDate : minimumStart;
+  const start = startDate && startDate >= financeStartDate ? startDate : minimumStart;
   return {
     start,
     end: endDate || (startDate ? today : `${year}-12-31`),
@@ -464,19 +472,78 @@ function quarterEndDate(year, quarterIndex) {
   return new Date(Date.UTC(year, (quarterIndex + 1) * 3, 0)).toISOString().slice(0, 10);
 }
 
+function getQuarterlyContributionAmount(quarterStart) {
+  const rate = [...contributionRates]
+    .filter(item => item.quarter_start <= quarterStart)
+    .sort((a, b) => b.quarter_start.localeCompare(a.quarter_start))[0];
+  return Number(rate?.quarterly_amount ?? quarterlyContributionAmount);
+}
+
+function contributionAmountForQuarters(quarterStarts) {
+  const totalCents = quarterStarts.reduce(
+    (total, quarterStart) => total + Math.round(getQuarterlyContributionAmount(quarterStart) * 100),
+    0,
+  );
+  return totalCents / 100;
+}
+
+function quarterLabel(quarterStart) {
+  const date = new Date(`${quarterStart}T00:00:00Z`);
+  return `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
+}
+
+function renderContributionRateHistory() {
+  const history = document.querySelector("#contribution-rate-history");
+  history.replaceChildren(...[...contributionRates]
+    .sort((a, b) => a.quarter_start.localeCompare(b.quarter_start))
+    .map(rate => {
+      const item = document.createElement("li");
+      item.textContent = `Ab ${quarterLabel(rate.quarter_start)}: ${money(rate.quarterly_amount)} je Quartal`;
+      return item;
+    }));
+}
+
+function renderContributionRateQuarterOptions() {
+  const lastYear = new Date().getFullYear() + 5;
+  const options = [];
+  for (let year = 2026; year <= lastYear; year += 1) {
+    for (let quarter = 0; quarter < 4; quarter += 1) {
+      const start = quarterDate(year, quarter);
+      if (start >= financeStartDate) options.push(new Option(quarterLabel(start), start));
+    }
+  }
+  const currentQuarter = quarterDate(
+    new Date().getFullYear(),
+    Math.floor(new Date().getMonth() / 3),
+  );
+  const preferred = contributionRateQuarter.value || currentQuarter;
+  contributionRateQuarter.replaceChildren(...options);
+  contributionRateQuarter.value = options.some(option => option.value === preferred)
+    ? preferred
+    : options[0]?.value;
+}
+
 function renderContributionPaymentControls() {
   contributionPaymentMember.replaceChildren(...teamMembers
     .filter(member => member.active)
     .map(member => new Option(member.name, String(member.id))));
   const usedTransactions = new Set(contributionPayments.map(payment => Number(payment.transaction_id)));
   const availableTransactions = contributionIncomeTransactions.filter(transaction => !usedTransactions.has(Number(transaction.id)));
+  const selectedTransaction = contributionPaymentTransaction.value;
   contributionPaymentTransaction.replaceChildren(
-    new Option(availableTransactions.length ? "Einnahme auswählen" : "Keine unzugeordneten Einnahmen", ""),
+    new Option(availableTransactions.length ? "Einnahme auswählen" : "Keine unzugeordneten Einnahmen auf dieser Seite", ""),
     ...availableTransactions.map(transaction => new Option(
       `${formatDate(transaction.transaction_date)} · ${transaction.description} · ${money(transaction.amount)}`,
       String(transaction.id),
     )),
   );
+  if (availableTransactions.some(transaction => String(transaction.id) === selectedTransaction)) {
+    contributionPaymentTransaction.value = selectedTransaction;
+  }
+  contributionPaymentLoadMore.disabled = contributionIncomeLoading || !contributionIncomeHasMore;
+  contributionPaymentLoadMore.textContent = contributionIncomeLoading
+    ? "Einnahmen werden geladen …"
+    : contributionIncomeHasMore ? "Ältere Einnahmen laden" : "Keine weiteren Einnahmen";
   const year = Number(contributionYear.value || new Date().getFullYear());
   const thisQuarter = Math.floor(new Date().getMonth() / 3);
   const firstQuarter = year === 2026 ? 3 : 0;
@@ -495,6 +562,48 @@ function renderContributionPaymentControls() {
   }));
 }
 
+async function loadContributionIncomeTransactions(reset = false) {
+  if (!isAdministrator()) return;
+  if (!reset && contributionIncomeLoading) return;
+  if (reset) {
+    contributionIncomeRequestId += 1;
+    contributionIncomeTransactions = [];
+    contributionIncomeHasMore = false;
+  }
+  const requestId = contributionIncomeRequestId;
+  contributionIncomeLoading = true;
+  renderContributionPaymentControls();
+  try {
+    const offset = reset ? 0 : contributionIncomeTransactions.length;
+    let query = supabaseClient.from("transactions")
+      .select("id, description, amount, transaction_date")
+      .eq("type", "INCOME")
+      .gte("transaction_date", financeStartDate)
+      .is("deleted_at", null)
+      .order("transaction_date", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + 99);
+    const search = contributionPaymentSearch.value.trim();
+    if (search) query = query.ilike("description", `%${search}%`);
+    const { data, error } = await query;
+    if (error) throw error;
+    if (requestId !== contributionIncomeRequestId) return;
+    const page = data || [];
+    const knownIds = new Set(contributionIncomeTransactions.map(item => Number(item.id)));
+    contributionIncomeTransactions.push(...page.filter(item => !knownIds.has(Number(item.id))));
+    contributionIncomeHasMore = page.length === 100;
+  } catch (error) {
+    if (requestId === contributionIncomeRequestId) {
+      contributionAdminStatus.textContent = `Einnahmen konnten nicht geladen werden: ${error.message}`;
+    }
+  } finally {
+    if (requestId === contributionIncomeRequestId) {
+      contributionIncomeLoading = false;
+      renderContributionPaymentControls();
+    }
+  }
+}
+
 function renderTeamContributions() {
   const years = new Set([
     ...Array.from(
@@ -510,7 +619,10 @@ function renderTeamContributions() {
   const paymentsById = new Map(contributionPayments.map(payment => [Number(payment.id), payment]));
   const paymentsByMemberQuarter = new Map();
   contributionQuarters.forEach(quarter => {
-    paymentsByMemberQuarter.set(`${quarter.member_id}:${quarter.quarter_start}`, paymentsById.get(Number(quarter.payment_id)));
+    paymentsByMemberQuarter.set(`${quarter.member_id}:${quarter.quarter_start}`, {
+      payment: paymentsById.get(Number(quarter.payment_id)),
+      amount: Number(quarter.quarterly_amount),
+    });
   });
   const activeMembers = teamMembers.filter(member => member.active);
   const today = todayDate();
@@ -535,13 +647,14 @@ function renderTeamContributions() {
     [0, 1, 2, 3].forEach(index => {
       const start = quarterDate(year, index);
       const end = quarterEndDate(year, index);
-      const payment = paymentsByMemberQuarter.get(`${member.id}:${start}`);
+      const quarterPayment = paymentsByMemberQuarter.get(`${member.id}:${start}`);
       const cell = document.createElement("td");
       cell.dataset.label = `Q${index + 1}`;
       if (start < financeStartDate) {
         cell.className = "contribution-inactive";
         cell.textContent = "Vor Beginn";
-      } else if (payment) {
+      } else if (quarterPayment?.payment) {
+        const payment = quarterPayment.payment;
         memberPaidCount += 1;
         if (member.active && today >= end) {
           memberPaidDueCount += 1;
@@ -556,7 +669,7 @@ function renderTeamContributions() {
         badge.className = "contribution-status-pill contribution-status-paid";
         badge.textContent = "Bezahlt";
         const detail = document.createElement("small");
-        detail.textContent = `${paymentDate ? `${paymentDate} · ` : ""}${money(payment.quarterly_amount)} · ${description}`;
+        detail.textContent = `${paymentDate ? `${paymentDate} · ` : ""}${money(quarterPayment.amount)} · ${description}`;
         cell.append(badge, detail);
         if (isAdministrator()) {
           const remove = document.createElement("button");
@@ -577,7 +690,7 @@ function renderTeamContributions() {
           badge.className = "contribution-status-pill contribution-status-future";
           badge.textContent = "Noch nicht fällig";
           const detail = document.createElement("small");
-          detail.textContent = `bis ${formatDate(end)}`;
+          detail.textContent = `${money(getQuarterlyContributionAmount(start))} · bis ${formatDate(end)}`;
           cell.append(badge, detail);
         } else if (today > end) {
           memberOverdueCount += 1;
@@ -587,7 +700,7 @@ function renderTeamContributions() {
           badge.className = "contribution-status-pill contribution-status-overdue";
           badge.textContent = "Überfällig";
           const detail = document.createElement("small");
-          detail.textContent = `seit ${formatDate(end)}`;
+          detail.textContent = `${money(getQuarterlyContributionAmount(start))} · seit ${formatDate(end)}`;
           cell.append(badge, detail);
         } else {
           memberOpenCount += 1;
@@ -596,7 +709,9 @@ function renderTeamContributions() {
           const badge = document.createElement("span");
           badge.className = "contribution-status-pill contribution-status-due";
           badge.textContent = "Fällig heute";
-          cell.append(badge);
+          const detail = document.createElement("small");
+          detail.textContent = money(getQuarterlyContributionAmount(start));
+          cell.append(badge, detail);
         }
       }
       row.append(cell);
@@ -627,7 +742,10 @@ function renderTeamContributions() {
       ["Überfällig", String(overdueCount), "overdue"],
       ["Heute fällig", String(openCount), "due"],
       ["Noch nicht fällig", String(futureCount), "future"],
-      ["Beitrag je Quartal", money(quarterlyContributionAmount), "amount"],
+      ["Beitrag aktuell", money(getQuarterlyContributionAmount(quarterDate(
+        new Date().getFullYear(),
+        Math.floor(new Date().getMonth() / 3),
+      ))), "amount"],
     ].map(([label, value, kind]) => {
       const metric = document.createElement("div");
       metric.className = `contribution-metric contribution-metric-${kind}`;
@@ -639,9 +757,11 @@ function renderTeamContributions() {
       return metric;
     }),
   );
-  contributionAmount.value = Number(quarterlyContributionAmount).toFixed(2);
+  renderContributionRateQuarterOptions();
+  contributionAmount.value = getQuarterlyContributionAmount(contributionRateQuarter.value).toFixed(2);
   bankOpeningBalanceInput.value = Number(bankOpeningBalance).toFixed(2);
   paypalOpeningBalanceInput.value = Number(paypalOpeningBalance).toFixed(2);
+  renderContributionRateHistory();
   renderContributionPaymentControls();
 }
 
@@ -655,7 +775,7 @@ async function refreshContributions() {
   contributionError.hidden = true;
   contributionSummary.textContent = "Beitragsübersicht wird geladen …";
   try {
-    const [membersResult, settingsResult, paymentsResult, quartersResult, incomeResult] = await Promise.all([
+    const [membersResult, settingsResult, paymentsResult, quartersResult, ratesResult] = await Promise.all([
       supabaseClient.from("team_members").select("id, name, active").order("name"),
       supabaseClient.from("team_contribution_settings")
         .select("quarterly_amount, bank_opening_balance, paypal_opening_balance")
@@ -665,16 +785,12 @@ async function refreshContributions() {
         .select("id, member_id, transaction_id, quarterly_amount, transaction:transactions(description, transaction_date)")
         .order("created_at", { ascending: false }),
       supabaseClient.from("team_contribution_payment_quarters")
-        .select("payment_id, member_id, quarter_start"),
-      supabaseClient.from("transactions")
-        .select("id, description, amount, transaction_date")
-        .eq("type", "INCOME")
-          .gte("transaction_date", financeStartDate)
-          .is("deleted_at", null)
-        .order("transaction_date", { ascending: false })
-        .limit(1000),
+        .select("payment_id, member_id, quarter_start, quarterly_amount"),
+      supabaseClient.from("team_contribution_rates")
+        .select("quarter_start, quarterly_amount")
+        .order("quarter_start"),
     ]);
-    for (const result of [membersResult, settingsResult, paymentsResult, quartersResult, incomeResult]) {
+    for (const result of [membersResult, settingsResult, paymentsResult, quartersResult, ratesResult]) {
       if (result.error) throw result.error;
     }
     teamMembers = membersResult.data || [];
@@ -683,9 +799,10 @@ async function refreshContributions() {
     paypalOpeningBalance = Number(settingsResult.data?.paypal_opening_balance ?? 0);
     contributionPayments = paymentsResult.data || [];
     contributionQuarters = quartersResult.data || [];
-    contributionIncomeTransactions = incomeResult.data || [];
+    contributionRates = ratesResult.data || [];
     if (transactionAnalytics) renderTransactions();
     renderTeamContributions();
+    if (isAdministrator()) await loadContributionIncomeTransactions(true);
   } catch (error) {
     contributionSummary.textContent = "Beitragsübersicht konnte nicht geladen werden.";
     contributionError.textContent = `Beitragsdaten fehlen oder konnten nicht geladen werden: ${error.message} Bitte das aktuelle Delta-Skript supabase/schema.sql im Supabase SQL Editor ausführen und die RLS-Berechtigungen prüfen.`;
@@ -1884,6 +2001,10 @@ recurringForm.addEventListener("submit", async event => {
     recurringStatus.textContent = "Bitte eine gültige erste Fälligkeit wählen.";
     return;
   }
+  if (nextDate < financeStartDate) {
+    recurringStatus.textContent = `Die erste Fälligkeit darf nicht vor dem ${formatDate(financeStartDate)} liegen.`;
+    return;
+  }
   const payload = {
     type: document.querySelector("#recurring-type").value,
     account: document.querySelector("#recurring-account").value,
@@ -1941,32 +2062,59 @@ contributionYear.addEventListener("change", renderTeamContributions);
 document.querySelector("#contribution-settings-form").addEventListener("submit", async event => {
   event.preventDefault();
   if (!isAdministrator()) return;
-  const amount = Number(contributionAmount.value);
   const bankBalance = Number(bankOpeningBalanceInput.value);
   const paypalBalance = Number(paypalOpeningBalanceInput.value);
-  if (!Number.isFinite(amount) || amount <= 0
-    || !Number.isFinite(bankBalance)
+  if (!Number.isFinite(bankBalance)
     || !Number.isFinite(paypalBalance)) {
-    contributionAdminStatus.textContent = "Bitte einen Quartalsbeitrag größer als 0 und gültige Startsalden eingeben.";
+    contributionAdminStatus.textContent = "Bitte gültige Startsalden eingeben.";
     return;
   }
   try {
-    const { error } = await supabaseClient.from("team_contribution_settings").upsert({
-      id: 1,
-      quarterly_amount: amount,
-      bank_opening_balance: bankBalance,
-      paypal_opening_balance: paypalBalance,
-      updated_at: new Date().toISOString(),
-      updated_by: session.user.id,
-    });
+    const { error } = await supabaseClient.from("team_contribution_settings")
+      .update({
+        bank_opening_balance: bankBalance,
+        paypal_opening_balance: paypalBalance,
+        updated_at: new Date().toISOString(),
+        updated_by: session.user.id,
+      })
+      .eq("id", 1);
     if (error) throw error;
-    contributionAdminStatus.textContent = "Quartalsbeitrag und Startsalden gespeichert.";
+    contributionAdminStatus.textContent = "Startsalden gespeichert.";
     await refreshTransactions();
     await refreshContributions();
   } catch (error) {
     contributionAdminStatus.textContent = `Einstellungen konnten nicht gespeichert werden: ${error.message}`;
   }
 });
+document.querySelector("#contribution-rate-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!isAdministrator()) return;
+  const amount = Number(contributionAmount.value);
+  const effectiveQuarter = contributionRateQuarter.value;
+  if (!Number.isFinite(amount) || amount <= 0 || !effectiveQuarter) {
+    contributionAdminStatus.textContent = "Bitte einen Beitrag größer als 0 und ein Wirksamkeitsquartal auswählen.";
+    return;
+  }
+  try {
+    const { error } = await supabaseClient.rpc("set_team_contribution_rate", {
+      p_quarter_start: effectiveQuarter,
+      p_quarterly_amount: amount,
+    });
+    if (error) throw error;
+    contributionAdminStatus.textContent = `Beitragssatz ab ${quarterLabel(effectiveQuarter)} gespeichert.`;
+    await refreshContributions();
+  } catch (error) {
+    contributionAdminStatus.textContent = `Beitragssatz konnte nicht gespeichert werden: ${error.message}`;
+  }
+});
+contributionRateQuarter.addEventListener("change", () => {
+  contributionAmount.value = getQuarterlyContributionAmount(contributionRateQuarter.value).toFixed(2);
+});
+contributionPaymentSearch.addEventListener("input", () => {
+  clearTimeout(contributionIncomeSearchTimer);
+  contributionIncomeSearchTimer = setTimeout(() => loadContributionIncomeTransactions(true), 300);
+});
+contributionPaymentLoadMore.addEventListener("click", () => loadContributionIncomeTransactions());
 document.querySelector("#contribution-member-form").addEventListener("submit", async event => {
   event.preventDefault();
   if (!isAdministrator()) return;
@@ -1998,16 +2146,17 @@ document.querySelector("#contribution-payment-form").addEventListener("submit", 
     contributionAdminStatus.textContent = "Bitte Mitglied, Einnahme-Buchung und Quartalszeitraum auswählen.";
     return;
   }
-  if (Math.round(Number(transaction.amount) * 100) !== Math.round(quarterlyContributionAmount * count * 100)) {
-    contributionAdminStatus.textContent = `Der Buchungsbetrag (${money(transaction.amount)}) muss genau ${money(quarterlyContributionAmount * count)} für ${count} Quartal${count === 1 ? "" : "e"} betragen.`;
-    return;
-  }
   const quarterDateValue = new Date(`${firstQuarter}T00:00:00Z`);
   const quarterStarts = Array.from({ length: count }, (_, index) => {
     const date = new Date(quarterDateValue);
     date.setUTCMonth(date.getUTCMonth() + index * 3);
     return date.toISOString().slice(0, 10);
   });
+  const expectedAmount = contributionAmountForQuarters(quarterStarts);
+  if (Math.round(Number(transaction.amount) * 100) !== Math.round(expectedAmount * 100)) {
+    contributionAdminStatus.textContent = `Der Buchungsbetrag (${money(transaction.amount)}) muss für ${quarterStarts.map(quarterLabel).join(", ")} genau ${money(expectedAmount)} betragen.`;
+    return;
+  }
   try {
     const { error } = await supabaseClient.rpc("record_team_contribution_payment", {
       p_member_id: memberId,

@@ -59,9 +59,10 @@ Monats- und Kategorieauswertungen übernehmen Jahr oder frei gewählten Zeitraum
 Buchungsart, Abgleichstatus und Suche sowie optional den Konto-Summenfilter. Schnellfilter für
 die letzten 30 Tage, den aktuellen Monat und das laufende Jahr helfen bei der
 Auswahl; häufige und selbst gespeicherte Filteransichten stehen als Chips bereit
-und werden lokal im Browser gespeichert. Wenn ein eigenes Startdatum gesetzt
-wird und das Enddatum leer bleibt, reicht der Zeitraum bis heute; ohne
-Startdatum beginnt er am Jahresanfang.
+und werden lokal im Browser gespeichert. Ein eigenes Startdatum hat Vorrang vor
+dem Jahresanfang; bleibt das Enddatum leer, reicht der Zeitraum bis heute. Ein
+Enddatum ohne eigenes Startdatum verwendet den Jahresanfang (begrenzt auf den
+Kassenstart 01.10.2026).
 PDF- und CSV-Export verwenden dieselben Datums- und Buchungsfilter. Der
 PDF-Export lädt Buchungen in Seiten zu je 500 Einträgen und zeigt währenddessen
 den Fortschritt an. Kategorien werden
@@ -97,8 +98,8 @@ die Fälligkeiten; fällige Vorkommen werden nur nach manueller Bestätigung
 erzeugt und in der Oberfläche hervorgehoben. Das Datum des ersten monatlichen
 Vorkommens bestimmt den Monatstag; bei kürzeren Monaten wird der letzte
 Monatstag verwendet. Jährliche Termine am 29. Februar fallen in Nicht-Schalt-
-jahren auf den 28. Februar. Die Datenbank verhindert Doppelbuchungen für
-dasselbe Vorkommen.
+jahren auf den 28. Februar. Die Datenbank verhindert Termine aktiver Vorlagen
+vor dem 01.10.2026 sowie Doppelbuchungen für dasselbe Vorkommen.
 
 Administratoren können gelöschte Buchungen über **Gelöschte Buchungen**
 anzeigen und wiederherstellen. **Verlauf** zeigt Erstellungs-, Änderungs-,
@@ -148,17 +149,22 @@ je Quartal ab Q4 2026. Beiträge sind am letzten Tag des Quartals fällig und ab
 dem Folgetag überfällig. Bis zum Quartalsende wird ein unbezahlter Beitrag als
 „Noch nicht fällig“ angezeigt; am Fälligkeitstag als „Fällig heute“.
 Administratoren pflegen die separate Mitgliederliste und können Mitglieder
-deaktivieren oder reaktivieren. Der Quartalsbeitrag startet mit 75 Euro und
-kann von Administratoren angepasst werden.
+deaktivieren oder reaktivieren. Der Quartalsbeitrag startet mit 75 Euro.
+Administratoren können neue Sätze ab einem gewählten Quartal festlegen; der
+Satz gilt bis zum nächsten wirksamen Satz. Die Historie bleibt sichtbar und
+bereits zugeordnete Zahlungen behalten den bei der Zuordnung gespeicherten
+Quartalsbetrag.
 
 Eine Zahlung wird durch einen Administrator einer vorhandenen Einnahme-Buchung
-und einem Mitglied zugeordnet. Die Buchungssumme muss dem Beitrag multipliziert
-mit der Anzahl der abgedeckten Quartale entsprechen. Zusammenhängende Quartale
-können in einer Zuordnung erfasst werden, auch über einen Jahreswechsel hinweg.
-Eine Einnahme kann nur einmal zugeordnet werden; bereits bezahlte Quartale
-können nicht doppelt verbucht werden. Zum Korrigieren hebt ein Administrator
-die gesamte Zuordnung auf; die Einnahme selbst bleibt bestehen. Die
-Zuordnungen und Mitgliederliste werden durch Supabase-RLS geschützt.
+und einem Mitglied zugeordnet. Einnahmen können in Seiten geladen und nach
+Beschreibung durchsucht werden. Die Buchungssumme muss der Summe der für die
+abgedeckten Quartale gültigen Beitragssätze entsprechen. Zusammenhängende
+Quartale können in einer Zuordnung erfasst werden, auch über einen Jahreswechsel
+und Satzwechsel hinweg. Eine Einnahme kann nur einmal zugeordnet werden;
+bereits bezahlte Quartale können nicht doppelt verbucht werden. Zum Korrigieren
+hebt ein Administrator die gesamte Zuordnung auf; die Einnahme selbst bleibt
+bestehen. Die Zuordnungen und Mitgliederliste werden durch Supabase-RLS
+geschützt.
 
 ## Admin-Zugänge verwalten
 

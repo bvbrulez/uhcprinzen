@@ -639,6 +639,7 @@ for each row execute function public.protect_team_contribution_transaction();
 create table if not exists public.team_contribution_payment_quarters (
   payment_id bigint not null references public.team_contribution_payments(id) on delete cascade,
   member_id bigint not null references public.team_members(id),
+  quarterly_amount numeric(10, 2),
   quarter_start date not null check (
     extract(day from quarter_start) = 1
     and extract(month from quarter_start) in (1, 4, 7, 10)
@@ -647,14 +648,53 @@ create table if not exists public.team_contribution_payment_quarters (
   unique (member_id, quarter_start)
 );
 
+alter table public.team_contribution_payment_quarters
+  add column if not exists quarterly_amount numeric(10, 2);
+
+update public.team_contribution_payment_quarters as q
+set quarterly_amount = p.quarterly_amount
+from public.team_contribution_payments as p
+where p.id = q.payment_id
+  and q.quarterly_amount is null;
+
+alter table public.team_contribution_payment_quarters
+  alter column quarterly_amount set not null;
+
+alter table public.team_contribution_payment_quarters
+  drop constraint if exists team_contribution_payment_quarters_amount_check;
+
+alter table public.team_contribution_payment_quarters
+  add constraint team_contribution_payment_quarters_amount_check
+  check (quarterly_amount > 0);
+
+create table if not exists public.team_contribution_rates (
+  quarter_start date primary key check (
+    quarter_start >= date '2026-10-01'
+    and extract(day from quarter_start) = 1
+    and extract(month from quarter_start) in (1, 4, 7, 10)
+  ),
+  quarterly_amount numeric(10, 2) not null check (quarterly_amount > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id)
+);
+
+insert into public.team_contribution_rates (quarter_start, quarterly_amount)
+select date '2026-10-01', quarterly_amount
+from public.team_contribution_settings
+where id = 1
+on conflict (quarter_start) do nothing;
+
 create index if not exists team_contribution_quarters_date_idx
   on public.team_contribution_payment_quarters (quarter_start);
 
 alter table public.team_contribution_payments enable row level security;
 alter table public.team_contribution_payment_quarters enable row level security;
+alter table public.team_contribution_rates enable row level security;
 grant select, delete on public.team_contribution_payments to authenticated;
 grant usage, select on sequence public.team_contribution_payments_id_seq to authenticated;
 grant select on public.team_contribution_payment_quarters to authenticated;
+grant select on public.team_contribution_rates to authenticated;
 
 drop policy if exists "Members can read contribution payments" on public.team_contribution_payments;
 create policy "Members can read contribution payments"
@@ -671,6 +711,12 @@ create policy "Admins can remove contribution payments"
 drop policy if exists "Members can read contribution quarters" on public.team_contribution_payment_quarters;
 create policy "Members can read contribution quarters"
   on public.team_contribution_payment_quarters for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Members can read contribution rates" on public.team_contribution_rates;
+create policy "Members can read contribution rates"
+  on public.team_contribution_rates for select
   to authenticated
   using (true);
 
@@ -763,6 +809,59 @@ begin
 end;
 $$;
 
+alter table public.recurring_transactions
+  drop constraint if exists recurring_transactions_next_date_management_start_check;
+
+alter table public.recurring_transactions
+  add constraint recurring_transactions_next_date_management_start_check
+  check (not active or next_date >= date '2026-10-01');
+
+create or replace function public.set_team_contribution_rate(
+  p_quarter_start date,
+  p_quarterly_amount numeric
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_finance_admin() then
+    raise exception 'Nur Administratoren dürfen Beitragssätze ändern.';
+  end if;
+  if p_quarter_start is null
+    or p_quarter_start < date '2026-10-01'
+    or extract(day from p_quarter_start) <> 1
+    or extract(month from p_quarter_start) not in (1, 4, 7, 10)
+  then
+    raise exception 'Das Wirksamkeitsdatum muss der Beginn eines Quartals ab 01.10.2026 sein.';
+  end if;
+  if p_quarterly_amount is null or p_quarterly_amount <= 0 then
+    raise exception 'Der Quartalsbeitrag muss größer als 0 sein.';
+  end if;
+
+  insert into public.team_contribution_rates
+    (quarter_start, quarterly_amount, updated_at, updated_by)
+  values
+    (p_quarter_start, p_quarterly_amount, now(), auth.uid())
+  on conflict (quarter_start) do update
+    set quarterly_amount = excluded.quarterly_amount,
+        updated_at = excluded.updated_at,
+        updated_by = excluded.updated_by;
+
+  insert into public.team_contribution_settings
+    (id, quarterly_amount, updated_at, updated_by)
+  values
+    (1, p_quarterly_amount, now(), auth.uid())
+  on conflict (id) do update
+    set quarterly_amount = excluded.quarterly_amount,
+        updated_at = excluded.updated_at,
+        updated_by = excluded.updated_by;
+end;
+$$;
+revoke all on function public.set_team_contribution_rate(date, numeric) from public, anon;
+grant execute on function public.set_team_contribution_rate(date, numeric) to authenticated;
+
 create or replace function public.record_team_contribution_payment(
   p_member_id bigint,
   p_transaction_id bigint,
@@ -777,6 +876,9 @@ declare
   member_row public.team_members%rowtype;
   transaction_row public.transactions%rowtype;
   contribution_amount numeric(10, 2);
+  amount_for_quarter numeric(10, 2);
+  expected_amount numeric(10, 2) := 0;
+  quarterly_amounts numeric(10, 2)[] := array[]::numeric[];
   new_payment_id bigint;
   quarter_count integer;
   quarter_index integer;
@@ -813,16 +915,7 @@ begin
     raise exception 'Die Einnahme-Buchung wurde nicht gefunden oder ist gelöscht.';
   end if;
 
-  select quarterly_amount into contribution_amount
-  from public.team_contribution_settings
-  where id = 1;
-  if not found then
-    raise exception 'Der Quartalsbeitrag ist noch nicht eingerichtet.';
-  end if;
-
-  if round(transaction_row.amount, 2) <> round(contribution_amount * quarter_count, 2) then
-    raise exception 'Der Buchungsbetrag muss dem Quartalsbeitrag multipliziert mit der Anzahl der Quartale entsprechen.';
-  end if;
+  lock table public.team_contribution_rates in share mode;
 
   for quarter_index in 1..quarter_count loop
     if p_quarter_starts[quarter_index] is null
@@ -834,7 +927,25 @@ begin
     then
       raise exception 'Die gewählten Quartale müssen zusammenhängend und gültig sein.';
     end if;
+
+    select rate.quarterly_amount into amount_for_quarter
+    from public.team_contribution_rates as rate
+    where rate.quarter_start <= p_quarter_starts[quarter_index]
+    order by rate.quarter_start desc
+    limit 1;
+    if not found then
+      raise exception 'Für % ist kein Beitragssatz eingerichtet.', p_quarter_starts[quarter_index];
+    end if;
+    if quarter_index = 1 then
+      contribution_amount := amount_for_quarter;
+    end if;
+    expected_amount := expected_amount + amount_for_quarter;
+    quarterly_amounts := array_append(quarterly_amounts, amount_for_quarter);
   end loop;
+
+  if round(transaction_row.amount, 2) <> round(expected_amount, 2) then
+    raise exception 'Der Buchungsbetrag muss der Summe der für die ausgewählten Quartale gültigen Beitragssätze entsprechen.';
+  end if;
 
   if exists (
     select 1
@@ -851,9 +962,13 @@ begin
     (p_member_id, p_transaction_id, contribution_amount, auth.uid())
   returning id into new_payment_id;
 
-  insert into public.team_contribution_payment_quarters (payment_id, member_id, quarter_start)
-  select new_payment_id, p_member_id, quarter_start
-  from unnest(p_quarter_starts) as quarters(quarter_start);
+  insert into public.team_contribution_payment_quarters
+    (payment_id, member_id, quarter_start, quarterly_amount)
+  select new_payment_id,
+         p_member_id,
+         p_quarter_starts[series.quarter_index],
+         quarterly_amounts[series.quarter_index]
+  from generate_series(1, quarter_count) as series(quarter_index);
 
   return new_payment_id;
 end;
