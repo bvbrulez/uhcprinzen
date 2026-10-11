@@ -7,12 +7,16 @@ import {
   quarterDate,
   resolveDateRange,
 } from "./finance-rules.mjs";
+import {
+  compareContributionUrgency,
+  matchesContributionMemberFilter,
+} from "./contribution-view-rules.mjs";
 import { createContributionService } from "./contribution-service.mjs";
 import { createAuthService } from "./auth-service.mjs";
 import { createRecurringService } from "./recurring-service.mjs";
-import { createTransactionService } from "./transaction-service.mjs";
+import { createTransactionService } from "./transaction-service.mjs?v=20261011-ui-improvements";
 import { createLatestRequestGate } from "./latest-request.mjs";
-import { createTransactionView } from "./transaction-view.mjs";
+import { createTransactionView } from "./transaction-view.mjs?v=20261011-ui-improvements";
 import { createCsvImportController } from "./csv-import-controller.mjs";
 import {
   buildCsvText,
@@ -36,6 +40,9 @@ const authState = document.querySelector("#auth-state");
 const financeContent = document.querySelector("#finance-content");
 const financeHint = document.querySelector("#finance-login-hint");
 const transactionList = document.querySelector("#transaction-list");
+const recentTransactionsList = document.querySelector("#recent-transactions-list");
+const recentTransactionsStatus = document.querySelector("#recent-transactions-status");
+const retryRecentTransactions = document.querySelector("#retry-recent-transactions");
 const yearFilter = document.querySelector("#year-filter");
 const accountFilter = document.querySelector("#account-filter");
 const summaryFilter = document.querySelector("#summary-filter");
@@ -86,6 +93,10 @@ const auditStatus = document.querySelector("#audit-status");
 const contributionYear = document.querySelector("#contribution-year");
 const contributionSummary = document.querySelector("#contribution-summary");
 const contributionList = document.querySelector("#contribution-list");
+const contributionMemberSearch = document.querySelector("#contribution-member-search");
+const contributionMemberStatus = document.querySelector("#contribution-member-status");
+const contributionFilterStatus = document.querySelector("#contribution-filter-status");
+const retryContributions = document.querySelector("#retry-contributions");
 const contributionNavCount = document.querySelector("#contribution-nav-count");
 const contributionAlert = document.querySelector("#contribution-alert");
 const contributionAlertMessage = document.querySelector("#contribution-alert-message");
@@ -103,7 +114,11 @@ const contributionRateQuarter = document.querySelector("#contribution-rate-quart
 const contributionAdminStatus = document.querySelector("#contribution-admin-status");
 let session = null;
 let transactions = [];
+let recentTransactions = [];
 let transactionAnalytics = null;
+let currentYearTotals = {};
+let previousYearTotals = null;
+let currentYear = new Date().getFullYear();
 let currentPage = 0;
 const pageSize = 50;
 let totalPages = 0;
@@ -119,6 +134,7 @@ let contributionPayments = [];
 let contributionQuarters = [];
 let contributionIncomeTransactions = [];
 let contributionRates = [];
+let contributionMemberFilterData = new Map();
 let quarterlyContributionAmount = 75;
 let bankOpeningBalance = 0;
 let paypalOpeningBalance = 0;
@@ -226,6 +242,15 @@ function setAuthenticated(nextSession) {
     setFinanceStatus("");
     contributionNavCount.textContent = "";
     contributionNavCount.hidden = true;
+    contributionFilterStatus.textContent = "";
+    retryContributions.hidden = true;
+    contributionMemberFilterData.clear();
+    contributionMemberSearch.value = "";
+    contributionMemberStatus.value = "all";
+    recentTransactions = [];
+    recentTransactionsList.replaceChildren();
+    recentTransactionsStatus.textContent = "Nach der Anmeldung werden die letzten Buchungen angezeigt.";
+    retryRecentTransactions.hidden = true;
     contributionNavCount.classList.remove("finance-nav-count-due", "finance-nav-count-overdue");
     contributionAlertMessage.textContent = "Beitragsstatus wird geladen …";
     contributionAlert.classList.remove("contribution-alert-due", "contribution-alert-overdue");
@@ -440,6 +465,7 @@ async function loadTransactions(requestId) {
     page: currentPage,
     pageSize,
     startDate: financeStartDate,
+    asOfDate: todayDate(),
   });
   if (!transactionRequests.isCurrent(requestId)) return;
   databaseSetupStatus.textContent = "Datenbankzugriff: verfügbar.";
@@ -449,6 +475,9 @@ async function loadTransactions(requestId) {
   reportSetupStatus.className = "setup-success";
   transactions = result.transactions;
   transactionAnalytics = result.analytics;
+  currentYearTotals = result.yearlyTotals;
+  previousYearTotals = result.previousYearTotals;
+  currentYear = result.currentYear;
   totalPages = Math.max(1, Math.ceil(result.count / pageSize));
   previousPage.disabled = currentPage === 0;
   nextPage.disabled = currentPage >= totalPages - 1;
@@ -629,7 +658,9 @@ function renderTeamContributions() {
   let paidDueCount = 0;
   let openCount = 0;
   let overdueCount = 0;
+  let outstandingAmount = 0;
   const futureCount = activeMembers.length * (eligibleQuarters.length - dueQuarters.length);
+  contributionMemberFilterData = new Map();
   contributionList.replaceChildren(...teamMembers.map(member => {
     const row = document.createElement("tr");
     const nameCell = document.createElement("th");
@@ -641,6 +672,7 @@ function renderTeamContributions() {
     let memberOpenCount = 0;
     let memberOverdueCount = 0;
     let memberFutureCount = 0;
+    let memberOutstandingAmount = 0;
     [0, 1, 2, 3].forEach(index => {
       const start = quarterDate(year, index);
       const dueDate = quarterContributionDueDate(year, index);
@@ -694,6 +726,8 @@ function renderTeamContributions() {
           } else if (dueStatus === "overdue") {
             memberOverdueCount += 1;
             overdueCount += 1;
+            memberOutstandingAmount += getQuarterlyContributionAmount(start);
+            outstandingAmount += getQuarterlyContributionAmount(start);
             cell.className = "contribution-overdue";
             const badge = document.createElement("span");
             badge.className = "contribution-status-pill contribution-status-overdue";
@@ -704,6 +738,8 @@ function renderTeamContributions() {
           } else {
             memberOpenCount += 1;
             openCount += 1;
+            memberOutstandingAmount += getQuarterlyContributionAmount(start);
+            outstandingAmount += getQuarterlyContributionAmount(start);
             cell.className = "contribution-open";
             const badge = document.createElement("span");
             badge.className = "contribution-status-pill contribution-status-due";
@@ -721,7 +757,20 @@ function renderTeamContributions() {
     statusCell.textContent = member.active
       ? `${memberPaidDueCount}/${dueQuarters.length} fällig bezahlt · ${memberOpenCount} offen · ${memberOverdueCount} überfällig · ${memberFutureCount} noch nicht fällig`
       : `${memberPaidCount}/${eligibleQuarters.length} bezahlt · inaktiv`;
-    row.append(statusCell);
+    const outstandingCell = document.createElement("td");
+    outstandingCell.dataset.label = "Offen im Jahr";
+    outstandingCell.className = `number ${memberOutstandingAmount > 0 ? "contribution-outstanding" : ""}`;
+    outstandingCell.textContent = money(memberOutstandingAmount);
+    row.append(outstandingCell, statusCell);
+    contributionMemberFilterData.set(String(member.id), {
+      name: member.name,
+      active: member.active,
+      paidDueCount: memberPaidDueCount,
+      dueQuarterCount: dueQuarters.length,
+      openCount: memberOpenCount,
+      overdueCount: memberOverdueCount,
+      outstandingAmount: memberOutstandingAmount,
+    });
     const actionCell = document.createElement("td");
     actionCell.hidden = !isAdministrator();
     actionCell.dataset.label = "Mitglied verwalten";
@@ -734,29 +783,50 @@ function renderTeamContributions() {
       actionCell.append(toggle);
     }
     row.append(actionCell);
+    row.dataset.memberId = String(member.id);
     return row;
   }));
+  const sortedRows = [...contributionList.querySelectorAll("tr[data-member-id]")]
+    .sort((left, right) => compareContributionUrgency(
+      contributionMemberFilterData.get(left.dataset.memberId),
+      contributionMemberFilterData.get(right.dataset.memberId),
+    ));
+  contributionList.replaceChildren(...sortedRows);
   contributionSummary.replaceChildren(
     ...[
       ["Fällig bezahlt", `${paidDueCount} / ${dueCount}`, "paid"],
       ["Überfällig", String(overdueCount), "overdue"],
       ["Fällig", String(openCount), "due"],
+      ["Offen gesamt", money(outstandingAmount), "open-amount"],
       ["Noch nicht fällig", String(futureCount), "future"],
       ["Beitrag aktuell", money(getQuarterlyContributionAmount(quarterDate(
         new Date().getFullYear(),
         Math.floor(new Date().getMonth() / 3),
       ))), "amount"],
     ].map(([label, value, kind]) => {
-      const metric = document.createElement("div");
-      metric.className = `contribution-metric contribution-metric-${kind}`;
+      const statusFilter = kind === "overdue" ? "overdue" : kind === "open-amount" ? "open" : null;
+      const metric = document.createElement(statusFilter ? "button" : "div");
+      metric.className = `contribution-metric contribution-metric-${kind}${statusFilter ? " contribution-metric-button" : ""}`;
+      if (statusFilter) {
+        metric.type = "button";
+        metric.dataset.contributionStatus = statusFilter;
+        metric.setAttribute("aria-pressed", String(contributionMemberStatus.value === statusFilter));
+        metric.addEventListener("click", () => applyContributionQuickFilter(statusFilter));
+      }
       const heading = document.createElement("span");
       heading.textContent = label;
       const number = document.createElement("strong");
       number.textContent = value;
       metric.append(heading, number);
+      if (statusFilter) {
+        const hint = document.createElement("small");
+        hint.textContent = "Mitglieder anzeigen";
+        metric.append(hint);
+      }
       return metric;
     }),
   );
+  applyContributionMemberFilters();
   renderContributionNavigation(year, openCount, overdueCount);
   renderContributionRateQuarterOptions();
   contributionAmount.value = getQuarterlyContributionAmount(contributionRateQuarter.value).toFixed(2);
@@ -764,6 +834,58 @@ function renderTeamContributions() {
   paypalOpeningBalanceInput.value = Number(paypalOpeningBalance).toFixed(2);
   renderContributionRateHistory();
   renderContributionPaymentControls();
+}
+
+function applyContributionMemberFilters() {
+  const search = contributionMemberSearch.value;
+  const status = contributionMemberStatus.value;
+  const rows = [...contributionList.querySelectorAll("tr[data-member-id]")];
+  let visibleCount = 0;
+  rows.forEach(row => {
+    const member = contributionMemberFilterData.get(row.dataset.memberId);
+    row.hidden = !matchesContributionMemberFilter(member, search, status);
+    if (!row.hidden) visibleCount += 1;
+  });
+  if (status === "all" && !search.trim()) {
+    rows.sort((left, right) => compareContributionUrgency(
+      contributionMemberFilterData.get(left.dataset.memberId),
+      contributionMemberFilterData.get(right.dataset.memberId),
+    ));
+    contributionList.replaceChildren(...rows);
+  }
+  const filtered = Boolean(search.trim() || status !== "all");
+  contributionSummary.querySelectorAll("[data-contribution-status]").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.contributionStatus === status));
+  });
+  const reset = document.querySelector("#reset-contribution-filters");
+  reset.disabled = !filtered;
+  contributionFilterStatus.textContent = !rows.length
+    ? "Noch keine Mitglieder angelegt."
+    : filtered
+    ? visibleCount
+      ? `${visibleCount} von ${rows.length} Mitgliedern angezeigt.`
+      : "Keine Mitglieder entsprechen der Suche und dem gewählten Status."
+    : `${rows.length} Mitglieder.`;
+}
+
+function applyContributionQuickFilter(status) {
+  contributionMemberStatus.value = status;
+  applyContributionMemberFilters();
+  document.querySelector("#contribution-table-scroll").scrollIntoView({ block: "center" });
+}
+
+function showOpenTransactionsForAccount(account) {
+  accountFilter.value = account;
+  typeFilter.value = "ALL";
+  reconciliationFilter.value = "OPEN";
+  transactionSearch.value = "";
+  summaryFilter.checked = false;
+  showDeleted.checked = false;
+  clearTimeout(searchTimer);
+  currentPage = 0;
+  document.querySelector("#transactions-panel").open = true;
+  setFinanceView("bookings");
+  refreshTransactions();
 }
 
 async function refreshContributions() {
@@ -774,6 +896,7 @@ async function refreshContributions() {
   }
   loadingContributions = true;
   contributionError.hidden = true;
+  retryContributions.hidden = true;
   contributionSummary.textContent = "Beitragsübersicht wird geladen …";
   contributionNavCount.textContent = "";
   contributionNavCount.hidden = true;
@@ -799,6 +922,7 @@ async function refreshContributions() {
       .setAttribute("aria-label", "Beiträge, Status derzeit nicht verfügbar");
     contributionError.textContent = `Beitragsdaten fehlen oder konnten nicht geladen werden: ${error.message} Bitte das aktuelle Delta-Skript supabase/schema.sql im Supabase SQL Editor ausführen und die RLS-Berechtigungen prüfen.`;
     contributionError.hidden = false;
+    retryContributions.hidden = false;
   } finally {
     loadingContributions = false;
     if (contributionRefreshPending && session) {
@@ -917,16 +1041,36 @@ async function refreshTransactions() {
   selectedTransactionIds.clear();
   updateBulkReconcileControls();
   retryTransactions.hidden = true;
+  retryRecentTransactions.hidden = true;
   financeContent.setAttribute("aria-busy", "true");
   setFinanceStatus("Finanzdaten werden geladen …");
+  recentTransactionsStatus.textContent = "Jüngste Buchungen werden geladen …";
   try {
     await loadTransactions(requestId);
     if (!transactionRequests.isCurrent(requestId)) return;
-    setFinanceStatus(transactions.length ? "" : "Noch keine Buchungen vorhanden.");
+    setFinanceStatus("");
+    try {
+      recentTransactions = await transactionService.loadRecentTransactions({
+        startDate: financeStartDate,
+        limit: 5,
+      });
+      if (!transactionRequests.isCurrent(requestId)) return;
+      renderRecentTransactions();
+    } catch (error) {
+      if (!transactionRequests.isCurrent(requestId)) return;
+      recentTransactions = [];
+      recentTransactionsList.replaceChildren();
+      recentTransactionsStatus.textContent = `Jüngste Buchungen konnten nicht geladen werden: ${error.message}`;
+      retryRecentTransactions.hidden = false;
+    }
   } catch (error) {
     if (!transactionRequests.isCurrent(requestId)) return;
     const message = getFinanceErrorMessage(error);
     setFinanceStatus(message, "status-error");
+    recentTransactions = [];
+    recentTransactionsList.replaceChildren();
+    recentTransactionsStatus.textContent = `Jüngste Buchungen konnten nicht geladen werden: ${message}`;
+    retryRecentTransactions.hidden = false;
     if (error.code === "42P01" || error.code === "PGRST202" || error.code === "42501") setFinanceSetupError(message);
     retryTransactions.hidden = false;
   } finally {
@@ -934,16 +1078,47 @@ async function refreshTransactions() {
   }
 }
 
+function renderRecentTransactions() {
+  retryRecentTransactions.hidden = true;
+  recentTransactionsList.replaceChildren(...recentTransactions.map(item => {
+    const row = document.createElement("li");
+    row.className = `recent-transaction ${item.type === "INCOME" ? "recent-transaction-income" : "recent-transaction-expense"}`;
+    const main = document.createElement("div");
+    main.className = "recent-transaction-main";
+    const description = document.createElement("strong");
+    description.textContent = item.description;
+    const details = document.createElement("span");
+    details.textContent = `${formatDate(item.transaction_date)} · ${item.account === "PAYPAL" ? "PayPal" : "Bank"} · ${item.category}`;
+    const amount = document.createElement("strong");
+    amount.className = "recent-transaction-amount";
+    amount.textContent = `${item.type === "INCOME" ? "+" : "−"} ${money(item.amount)}`;
+    const reconciliation = document.createElement("small");
+    reconciliation.className = item.reconciled_at ? "reconciliation-done" : "reconciliation-open";
+    reconciliation.textContent = item.reconciled_at ? "Abgeglichen" : "Offen";
+    main.append(description, details);
+    row.append(main, amount, reconciliation);
+    return row;
+  }));
+  recentTransactionsStatus.textContent = recentTransactions.length
+    ? `${recentTransactions.length} ${recentTransactions.length === 1 ? "neueste Buchung" : "neueste Buchungen"} seit dem 01.10.2026.`
+    : "Noch keine Buchungen vorhanden.";
+}
+
 function renderTransactions() {
+  const hasActiveFilters = hasNarrowedTransactionFilters();
   transactionView.renderTransactions({
     transactions,
     analytics: transactionAnalytics,
+    yearlyTotals: currentYearTotals,
+    previousYearTotals,
+    currentYear,
     period: dateRangeLabel(),
     range: getEffectiveDateRange(),
     bankOpeningBalance,
     paypalOpeningBalance,
     selectedTransactionIds,
     isAdministrator: isAdministrator(),
+    hasActiveFilters,
     callbacks: {
       updateBulkControls: updateBulkReconcileControls,
       restore: restoreTransaction,
@@ -952,8 +1127,33 @@ function renderTransactions() {
       delete: deleteTransaction,
       duplicate: transaction => openTransactionEditor(transaction, true),
       audit: openTransactionAudit,
+      resetFilters: resetTransactionFilterValues,
     },
   });
+}
+
+function hasNarrowedTransactionFilters() {
+  return dateFromFilter.value !== ""
+    || dateToFilter.value !== ""
+    || accountFilter.value !== "ALL"
+    || summaryFilter.checked
+    || typeFilter.value !== "ALL"
+    || reconciliationFilter.value !== "ALL"
+    || transactionSearch.value.trim() !== ""
+    || showDeleted.checked;
+}
+
+function resetTransactionFilterValues() {
+  accountFilter.value = "ALL";
+  yearFilter.value = String(new Date().getFullYear());
+  dateFromFilter.value = "";
+  dateToFilter.value = "";
+  reconciliationFilter.value = "ALL";
+  summaryFilter.checked = false;
+  typeFilter.value = "ALL";
+  transactionSearch.value = "";
+  showDeleted.checked = false;
+  refreshDateRange();
 }
 
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -1414,6 +1614,17 @@ recurringCancelEdit.addEventListener("click", () => {
 });
 document.querySelector("#create-due-recurring").addEventListener("click", createDueRecurringTransactions);
 contributionYear.addEventListener("change", renderTeamContributions);
+contributionMemberSearch.addEventListener("input", applyContributionMemberFilters);
+contributionMemberStatus.addEventListener("change", applyContributionMemberFilters);
+document.querySelector("#bank-open-summary").addEventListener("click", () => showOpenTransactionsForAccount("BANK"));
+document.querySelector("#paypal-open-summary").addEventListener("click", () => showOpenTransactionsForAccount("PAYPAL"));
+document.querySelector("#reset-contribution-filters").addEventListener("click", () => {
+  contributionMemberSearch.value = "";
+  contributionMemberStatus.value = "all";
+  renderTeamContributions();
+  contributionMemberSearch.focus();
+});
+retryContributions.addEventListener("click", refreshContributions);
 document.querySelector("#contribution-settings-form").addEventListener("submit", async event => {
   event.preventDefault();
   if (!isAdministrator()) return;
@@ -1610,16 +1821,7 @@ transactionSearch.addEventListener("input", () => {
   searchTimer = setTimeout(() => { currentPage = 0; refreshTransactions(); }, 350);
   updateActiveFilters();
 });
-resetFilters.addEventListener("click", () => {
-  accountFilter.value = "ALL";
-  dateFromFilter.value = "";
-  dateToFilter.value = "";
-  reconciliationFilter.value = "ALL";
-  summaryFilter.checked = false;
-  typeFilter.value = "ALL";
-  transactionSearch.value = "";
-  refreshDateRange();
-});
+resetFilters.addEventListener("click", resetTransactionFilterValues);
 exportTransactions.addEventListener("click", exportTransactionsAsPdf);
 exportCsvTransactions.addEventListener("click", () => {
   try {
@@ -1678,6 +1880,7 @@ selectVisibleTransactions.addEventListener("change", () => {
   updateBulkReconcileControls();
 });
 retryTransactions.addEventListener("click", refreshTransactions);
+retryRecentTransactions.addEventListener("click", refreshTransactions);
 previousPage.addEventListener("click", () => {
   if (currentPage === 0) return;
   currentPage -= 1;

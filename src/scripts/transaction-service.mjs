@@ -54,7 +54,19 @@ export function createTransactionService(client) {
       if (error) throw error;
     },
 
-    async loadPage({ filters, page, pageSize, startDate }) {
+    async loadRecentTransactions({ startDate, limit }) {
+      const { data, error } = await client.from("transactions")
+        .select("id, type, account, description, amount, transaction_date, category, reconciled_at")
+        .gte("transaction_date", startDate)
+        .is("deleted_at", null)
+        .order("transaction_date", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async loadPage({ filters, page, pageSize, startDate, asOfDate }) {
       let query = client.from("transactions")
         .select("id, type, account, description, amount, transaction_date, category, created_at, created_by_email, updated_at, updated_by_email, deleted_at, deleted_by_email, reconciled_at, reconciled_by_email", { count: "exact" })
         .gte("transaction_date", filters.dateRange.start)
@@ -81,9 +93,38 @@ export function createTransactionService(client) {
         p_end_date: filters.dateRange.end,
         p_reconciled: filters.reconciliation === "ALL" ? null : filters.reconciliation === "RECONCILED",
       });
+      const currentYear = Number(asOfDate.slice(0, 4));
+      const previousYear = currentYear - 1;
+      const previousYearStart = `${previousYear}-01-01`;
+      const month = Number(asOfDate.slice(5, 7));
+      const day = Number(asOfDate.slice(8, 10));
+      const previousYearLastDay = new Date(Date.UTC(previousYear, month, 0)).getUTCDate();
+      const previousYearEnd = `${previousYear}-${String(month).padStart(2, "0")}-${String(Math.min(day, previousYearLastDay)).padStart(2, "0")}`;
+      const yearlyAnalytics = client.rpc("get_transaction_analytics", {
+        p_year: currentYear,
+        p_account: null,
+        p_type: null,
+        p_search: null,
+        p_start_date: `${currentYear}-01-01` < startDate ? startDate : `${currentYear}-01-01`,
+        p_end_date: asOfDate,
+        p_reconciled: null,
+      });
+      const previousYearAnalytics = previousYearStart >= startDate
+        ? client.rpc("get_transaction_analytics", {
+          p_year: previousYear,
+          p_account: null,
+          p_type: null,
+          p_search: null,
+          p_start_date: previousYearStart,
+          p_end_date: previousYearEnd,
+          p_reconciled: null,
+        })
+        : Promise.resolve({ data: null, error: null });
       const outcomes = await Promise.allSettled([
         query,
         analytics,
+        yearlyAnalytics,
+        previousYearAnalytics,
         loadYears(startDate),
         loadCategories(),
       ]);
@@ -92,14 +133,21 @@ export function createTransactionService(client) {
       if (outcomes[1].status === "rejected") throw outcomes[1].reason;
       if (outcomes[1].value.error) throw outcomes[1].value.error;
       if (outcomes[2].status === "rejected") throw outcomes[2].reason;
+      if (outcomes[2].value.error) throw outcomes[2].value.error;
       if (outcomes[3].status === "rejected") throw outcomes[3].reason;
+      if (outcomes[3].value.error) throw outcomes[3].value.error;
+      if (outcomes[4].status === "rejected") throw outcomes[4].reason;
+      if (outcomes[5].status === "rejected") throw outcomes[5].reason;
 
       return {
         transactions: outcomes[0].value.data || [],
         count: outcomes[0].value.count || 0,
         analytics: outcomes[1].value.data,
-        years: outcomes[2].value,
-        categories: outcomes[3].value,
+        yearlyTotals: outcomes[2].value.data?.totals || {},
+        currentYear,
+        previousYearTotals: outcomes[3].value.data?.totals || null,
+        years: outcomes[4].value,
+        categories: outcomes[5].value,
       };
     },
 

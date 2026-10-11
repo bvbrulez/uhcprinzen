@@ -56,8 +56,9 @@ This repo auto-updates `CHANGELOG.md` via the pre-commit hook.
 - `src/scripts/latest-request.mjs`: request-generation gate used to prevent stale transaction queries from replacing newer filter results.
 - `src/scripts/finance-rules.mjs`: pure date-range, contribution-deadline, and historical-rate calculations shared by the app and Node tests.
 - `src/scripts/contribution-service.mjs`: Supabase data operations for contribution settings, members, rates, and payments; UI behavior remains in `app.js`.
+- `src/scripts/contribution-view-rules.mjs`: pure member-name and contribution-status filters shared by the contribution UI and Node tests.
 - `src/scripts/csv-rules.mjs`: pure CSV parsing and normalization rules, covered by Node unit tests.
-- `tests/unit/`: Node built-in tests for finance rules; `tests/e2e/`: optional Playwright flows that only permit loopback Supabase URLs.
+- `tests/unit/`: Node built-in tests for finance rules and contribution filters; `tests/e2e/`: optional Playwright flows that only permit loopback Supabase URLs.
 - `supabase/tests/`: pgTAP integration tests; execute only against a disposable local database.
 - `src/styles/base.css` and `src/styles/components.css`: styling for the site and finance interface.
 - `src/supabase-config.js`: browser-safe Supabase URL and anon key. Do not add the service-role key here.

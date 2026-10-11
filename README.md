@@ -11,11 +11,26 @@ Administratoren verwalten Buchungen, Beiträge und Einstellungen.
 
 Jedes Mitglied meldet sich mit einem persönlichen Supabase-Konto an. Die
 Finanzdaten sind nur nach der Anmeldung sichtbar. Die Übersicht zeigt den
-Gesamtsaldo sowie die Bank- und PayPal-Salden, Einnahmen, Ausgaben und
-Auswertungen für den ausgewählten Zeitraum.
+Gesamtsaldo sowie die Bank- und PayPal-Salden für den ausgewählten Zeitraum.
+Gesamteinnahmen und Gesamtausgaben beziehen sich unabhängig von den Filtern auf
+das laufende Kalenderjahr bis heute und umfassen beide Konten. Soweit ein
+vollständiger Vergleichszeitraum vorhanden ist, zeigen die Karten zusätzlich
+die Veränderung gegenüber demselben Zeitraum des Vorjahres.
 Die Bereiche Übersicht, Beiträge und Buchungen lassen sich über eine kompakte
 Navigation direkt öffnen. Offene und überfällige Beiträge des gewählten
 Beitragsjahres werden dort hervorgehoben und sind direkt erreichbar.
+In der Beitragsübersicht können Mitglieder nach Namen und Zahlungsstatus
+filtern. Auf kleinen Bildschirmen zeigen Buchungskarten zuerst die wichtigsten
+Angaben; weitere Details und Verwaltungsaktionen lassen sich bei Bedarf öffnen.
+Die Kennzahlen für offene und überfällige Beiträge filtern die Mitgliederliste
+direkt. Offene Abgleiche in der Übersicht öffnen die gefilterte Buchungsliste
+für das jeweilige Konto.
+Die Bereiche „Buchungen“ und „Auswertungen“ lassen sich in der Buchungsansicht
+bei Bedarf ein- und ausklappen.
+Die Beitragsliste priorisiert offene Fälle und weist den offenen Jahresbetrag
+je Mitglied aus. Auf der Finanzübersicht werden zusätzlich die fünf jüngsten
+Buchungen direkt angezeigt. Kennzahlen zu offenen Abgleichen und Beiträgen
+führen direkt zu den passenden Buchungs- beziehungsweise Mitgliederfiltern.
 
 ### Buchungen und Auswertungen
 
@@ -98,8 +113,9 @@ npm ci
 npm test
 ```
 
-Die Node-Test-Suite prüft Datums- und Beitragsregeln, Supabase-Zugriffe für
-Beiträge sowie CSV-Import und -Export einschließlich Formel-Schutz. GitHub
+Die Node-Test-Suite prüft Datums- und Beitragsregeln, Filter der
+Beitragsübersicht, Supabase-Zugriffe für Beiträge sowie CSV-Import und -Export
+einschließlich Formel-Schutz. GitHub
 Actions führt diese Unit-Tests und eine JavaScript-Syntaxprüfung bei Pull
 Requests und Pushes auf `main` aus. Die SQL- und Browser-Tests sind optional
 und werden bei Bedarf separat gestartet:
@@ -166,6 +182,7 @@ Umgebungsvariablen werden die passenden E2E-Tests übersprungen.
 - `src/index.html` – Seitenstruktur und Dialoge
 - `src/scripts/app.js` – Benutzeroberfläche und Ereignissteuerung
 - `src/scripts/transaction-view.mjs` – Buchungstabelle, Finanzkennzahlen und Auswertungen
+- `src/scripts/year-comparison.mjs` – Vorjahresvergleich und Darstellung der Veränderung
 - `src/scripts/csv-import-controller.mjs` – CSV-Importdialog, Mapping, Prüfung und Vorschau
 - `src/scripts/auth-service.mjs` – Supabase-Authentifizierung und Sitzungszugriff
 - `src/scripts/transaction-service.mjs` – Buchungs-, Kategorien-, Export- und Verlaufszugriffe
@@ -173,6 +190,7 @@ Umgebungsvariablen werden die passenden E2E-Tests übersprungen.
 - `src/scripts/latest-request.mjs` – verwirft verspätete Antworten älterer Filterabfragen
 - `src/scripts/finance-rules.mjs` – testbare Datums- und Beitragsregeln
 - `src/scripts/contribution-service.mjs` – Supabase-Datenzugriffe für Beiträge
+- `src/scripts/contribution-view-rules.mjs` – testbare Filterregeln für die Mitglieder-Beitragsübersicht
 - `src/scripts/csv-rules.mjs` – CSV-Parsing, Normalisierung und Importregeln
 - `src/styles/` – Layout und responsive Gestaltung
 - `src/supabase-config.js` – öffentliche Supabase-Projekt-URL und anon key

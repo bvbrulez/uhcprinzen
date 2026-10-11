@@ -2,6 +2,42 @@
 
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
+## 2026-10-11
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-11:
+- `M – .github/copilot-instructions.md`
+- `M – README.md`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `A – src/scripts/contribution-view-rules.mjs`
+- `M – src/scripts/transaction-service.mjs`
+- `M – src/scripts/transaction-view.mjs`
+- `A – src/scripts/year-comparison.mjs`
+- `M – src/styles/components.css`
+- `M – tests/e2e/access-control.spec.mjs`
+- `A – tests/unit/contribution-view-rules.test.mjs`
+- `M – tests/unit/transaction-service.test.mjs`
+- `A – tests/unit/year-comparison.test.mjs`
+
+
+### Finanzübersicht und Schnellzugriffe erweitert
+
+- Einnahmen und Ausgaben zeigen zusätzlich den Vergleich zum gleichen
+  Vorjahreszeitraum; ein Vergleich wird nur bei vorhandenen Daten für den
+  vollständigen Vergleichszeitraum angezeigt.
+- Offene Abgleichswerte für Bank und PayPal führen mit passenden Konten- und
+  Abgleichfiltern direkt zur Buchungsliste.
+- Kennzahlen für offene und überfällige Beiträge filtern die Mitgliederliste
+  direkt.
+- Buchungs- und Auswertungsbereiche ein- und ausklappbar gemacht; letzte
+  Buchungen, offene Beitragssummen und die Dringlichkeitssortierung in der
+  Finanzübersicht ergänzt.
+- Beitragsfilter, Vorjahresvergleich, Buchungszugriffe und UI-Schnellfilter
+  durch Unit- und Playwright-Tests abgedeckt.
+- README und Copilot-Projektanweisungen zur Oberfläche und Modulstruktur
+  aktualisiert.
+
 ## 2026-10-10
 ### Änderungen aus diesem Commit
 

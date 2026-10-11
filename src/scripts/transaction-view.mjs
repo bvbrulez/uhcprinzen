@@ -1,5 +1,11 @@
+import { describeYearComparison } from "./year-comparison.mjs";
+
 export function createTransactionView({ money, formatDate }) {
   const transactionList = document.querySelector("#transaction-list");
+  const transactionTableScroll = transactionList.closest(".table-scroll");
+  const emptyState = document.querySelector("#transaction-empty-state");
+  const emptyMessage = document.querySelector("#transaction-empty-message");
+  const resetEmptyFilters = document.querySelector("#reset-empty-transaction-filters");
   const monthlySummary = document.querySelector("#monthly-summary");
   const categorySummary = document.querySelector("#category-summary");
   const monthlyData = document.querySelector("#monthly-data");
@@ -121,6 +127,15 @@ export function createTransactionView({ money, formatDate }) {
     }));
   }
 
+  function renderYearComparison(selector, currentValue, previousValue, kind) {
+    const element = document.querySelector(selector);
+    element.className = "year-comparison";
+    element.title = "Vergleich mit dem gleichen Zeitraum des Vorjahres.";
+    const comparison = describeYearComparison(currentValue, previousValue, kind, money);
+    element.textContent = comparison.text;
+    element.classList.add(`year-comparison-${comparison.tone}`);
+  }
+
   function createButton(label, action, className = "button button-secondary button-edit") {
     const button = document.createElement("button");
     button.type = "button";
@@ -133,12 +148,16 @@ export function createTransactionView({ money, formatDate }) {
   function renderTransactions({
     transactions,
     analytics,
+    yearlyTotals,
+    previousYearTotals,
+    currentYear,
     period,
     range,
     bankOpeningBalance,
     paypalOpeningBalance,
     selectedTransactionIds,
     isAdministrator,
+    hasActiveFilters,
     callbacks,
   }) {
     const setText = (selector, value) => { document.querySelector(selector).textContent = value; };
@@ -146,22 +165,39 @@ export function createTransactionView({ money, formatDate }) {
     const accounts = analytics?.accounts || {};
     const bankBalance = Number(accounts.BANK || 0) + bankOpeningBalance;
     const paypalBalance = Number(accounts.PAYPAL || 0) + paypalOpeningBalance;
-    setText("#summary-period", `Kennzahlen für ${period}`);
+    setText("#summary-period", `Kontosalden und Auswertungen für ${period}. Einnahmen und Ausgaben zeigen das laufende Jahr bis heute.`);
+    setText("#total-income-label", `Gesamteinnahmen · ${currentYear} · beide Konten`);
+    setText("#total-expenses-label", `Gesamtausgaben · ${currentYear} · beide Konten`);
     setText("#bank-balance-label", `Bankkonto · Saldo zum ${formatDate(range.end)}`);
     setText("#paypal-balance-label", `PayPal-Konto · Saldo zum ${formatDate(range.end)}`);
     setText("#reconciliation-period", period);
     const reconciliation = analytics?.reconciliation || {};
     for (const [account, prefix] of [["BANK", "bank"], ["PAYPAL", "paypal"]]) {
       const values = reconciliation[account] || {};
-      setText(`#${prefix}-open-summary`, `${Number(values.open_count || 0)} · ${money(values.open_amount || 0)}`);
+      const openSummary = document.querySelector(`#${prefix}-open-summary`);
+      openSummary.textContent = `${Number(values.open_count || 0)} · ${money(values.open_amount || 0)}`;
+      openSummary.setAttribute(
+        "aria-label",
+        `${Number(values.open_count || 0)} offene Buchungen auf dem ${prefix === "bank" ? "Bankkonto" : "PayPal-Konto"}, ${money(values.open_amount || 0)}. Anklicken, um diese Buchungen anzuzeigen.`,
+      );
       setText(`#${prefix}-reconciled-summary`, `${Number(values.reconciled_count || 0)} · ${money(values.reconciled_amount || 0)}`);
     }
-    setText("#total-income", money(totals.income));
-    setText("#total-expenses", money(totals.expenses));
+    setText("#total-income", money(yearlyTotals.income));
+    setText("#total-expenses", money(yearlyTotals.expenses));
+    renderYearComparison("#income-year-comparison", yearlyTotals.income, previousYearTotals?.income, "income");
+    renderYearComparison("#expenses-year-comparison", yearlyTotals.expenses, previousYearTotals?.expenses, "expenses");
     setText("#total-balance", money(bankBalance + paypalBalance));
     setText("#bank-balance", money(bankBalance));
     setText("#paypal-balance", money(paypalBalance));
     renderAnalytics(analytics);
+
+    transactionTableScroll.hidden = transactions.length === 0;
+    emptyState.hidden = transactions.length !== 0;
+    emptyMessage.textContent = hasActiveFilters
+      ? "Keine Buchungen entsprechen den aktiven Filtern."
+      : "Für diesen Zeitraum gibt es noch keine Buchungen.";
+    resetEmptyFilters.hidden = !hasActiveFilters;
+    resetEmptyFilters.onclick = callbacks.resetFilters;
 
     transactionList.replaceChildren(...transactions.map(item => {
       const row = document.createElement("tr");
@@ -193,7 +229,10 @@ export function createTransactionView({ money, formatDate }) {
       const accountName = document.createElement("span");
       accountName.textContent = item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto";
       row.children[2].append(accountIcon, accountName);
-      row.children[3].textContent = item.description;
+      const description = document.createElement("span");
+      description.className = "transaction-description";
+      description.textContent = item.description;
+      row.children[3].append(description);
       row.children[4].textContent = item.type === "INCOME" ? "Einnahme" : "Ausgabe";
       row.children[5].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
       row.children[5].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
@@ -205,33 +244,68 @@ export function createTransactionView({ money, formatDate }) {
       row.children[8].textContent = item.updated_by_email
         ? `${formatDate(item.updated_at.slice(0, 10))} · ${item.updated_by_email}`
         : `Erstellt ${formatDate(item.created_at.slice(0, 10))}${item.created_by_email ? ` · ${item.created_by_email}` : ""}`;
+      const detailToggle = createButton("Weitere Details", () => {
+        const expanded = detailToggle.getAttribute("aria-expanded") !== "true";
+        detailToggle.setAttribute("aria-expanded", String(expanded));
+        mobileDetails.hidden = !expanded;
+      }, "transaction-mobile-toggle");
+      detailToggle.setAttribute("aria-expanded", "false");
+      detailToggle.setAttribute("aria-controls", `transaction-details-${item.id}`);
+      const mobileDetails = document.createElement("div");
+      mobileDetails.id = `transaction-details-${item.id}`;
+      mobileDetails.className = "transaction-mobile-details";
+      mobileDetails.hidden = true;
+      const detailValues = [
+        ["Konto", item.account === "PAYPAL" ? "PayPal-Konto" : "Bankkonto"],
+        ["Art", item.type === "INCOME" ? "Einnahme" : "Ausgabe"],
+        ["Kategorie", item.category],
+        ["Geändert", row.children[8].textContent],
+      ];
+      detailValues.forEach(([label, value]) => {
+        const detail = document.createElement("span");
+        const heading = document.createElement("strong");
+        heading.textContent = `${label}: `;
+        detail.append(heading, document.createTextNode(value));
+        mobileDetails.append(detail);
+      });
+      row.children[3].append(detailToggle, mobileDetails);
       row.children[9].hidden = !isAdministrator;
       row.children[9].classList.add("transaction-actions");
       if (!isAdministrator) return row;
 
+      const actionToggle = createButton("Aktionen", () => {
+        const expanded = actionToggle.getAttribute("aria-expanded") !== "true";
+        actionToggle.setAttribute("aria-expanded", String(expanded));
+        actionList.classList.toggle("is-expanded", expanded);
+      }, "transaction-mobile-toggle");
+      actionToggle.setAttribute("aria-expanded", "false");
+      actionToggle.setAttribute("aria-controls", `transaction-actions-${item.id}`);
+      const actionList = document.createElement("div");
+      actionList.id = `transaction-actions-${item.id}`;
+      actionList.className = "transaction-action-list";
+      row.children[9].append(actionToggle, actionList);
+
       if (item.deleted_at) {
         row.classList.add("deleted-transaction");
-        row.children[3].textContent += " · gelöscht";
+        description.textContent += " · gelöscht";
         row.children[8].textContent = `Gelöscht ${formatDate(item.deleted_at.slice(0, 10))}${item.deleted_by_email ? ` · ${item.deleted_by_email}` : ""}`;
-        row.children[9].append(createButton("Wiederherstellen", () => callbacks.restore(item)));
+        mobileDetails.lastElementChild.lastChild.textContent = row.children[8].textContent;
+        actionList.append(createButton("Wiederherstellen", () => callbacks.restore(item)));
       } else {
-        row.children[9].append(createButton(
+        actionList.append(createButton(
           item.reconciled_at ? "Abgleich aufheben" : "Abgleichen",
           () => callbacks.toggleReconciled(item),
           `button ${item.reconciled_at ? "button-secondary" : "button-reconcile"} button-edit`,
         ));
-        const reconcileButton = row.children[9].lastElementChild;
+        const reconcileButton = actionList.lastElementChild;
         reconcileButton.setAttribute("aria-pressed", String(Boolean(item.reconciled_at)));
-        row.children[9].append(createButton("Ändern", () => callbacks.edit(item)));
-        row.children[9].append(createButton("Löschen", () => callbacks.delete(item), "button button-danger button-edit"));
-        row.children[9].append(createButton("Duplizieren", () => callbacks.duplicate(item)));
+        actionList.append(createButton("Ändern", () => callbacks.edit(item)));
+        actionList.append(createButton("Löschen", () => callbacks.delete(item), "button button-danger button-edit"));
+        actionList.append(createButton("Duplizieren", () => callbacks.duplicate(item)));
       }
-      row.children[9].append(createButton("Verlauf", () => callbacks.audit(item)));
+      actionList.append(createButton("Verlauf", () => callbacks.audit(item)));
       return row;
     }));
-    if (!transactions.length) {
-      transactionList.innerHTML = '<tr><td colspan="10" class="muted">Keine Buchungen für den gewählten Zeitraum und Filter.</td></tr>';
-    }
     callbacks.updateBulkControls();
   }
 

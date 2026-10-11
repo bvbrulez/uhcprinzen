@@ -41,6 +41,18 @@
 .reconciliation-account h4 { color: var(--navy); grid-column: 1 / -1; margin: 0 0 .2rem; }
 .reconciliation-account p { color: var(--muted); font-size: .8rem; margin: 0; }
 .reconciliation-account strong { color: var(--navy); display: block; font-size: .86rem; }
+.reconciliation-summary-link {
+  background: transparent;
+  border: 0;
+  border-radius: .3rem;
+  color: var(--blue);
+  font-size: .86rem;
+  font-weight: 800;
+  padding: 0 .1rem;
+  text-decoration: underline;
+  text-underline-offset: .15em;
+}
+.reconciliation-summary-link:hover, .reconciliation-summary-link:focus-visible { color: #0f4e64; }
 .saved-filter-toolbar, .saved-filter-chips, .saved-filter-chip { align-items: center; display: flex; flex-wrap: wrap; gap: .4rem; }
 .saved-filter-toolbar { justify-content: space-between; margin: -.35rem 0 .8rem; }
 .saved-filter-chip { border: 1px solid var(--line); border-radius: .65rem; padding: .12rem; }
@@ -182,6 +194,10 @@ td[hidden], th[hidden] { display: none !important; }
 .summary-card::after { border: 1.4rem solid rgb(255 255 255 / 32%); border-radius: 50%; content: ""; height: 3.5rem; position: absolute; right: -1.5rem; top: -1.5rem; width: 3.5rem; }
 .summary-card span { letter-spacing: .08em; }
 .summary-card strong { font-size: clamp(1.45rem, 2.5vw, 1.9rem); letter-spacing: -.035em; }
+.year-comparison { font-size: .72rem; font-weight: 750; }
+.year-comparison-positive { color: #176b48; }
+.year-comparison-negative { color: #a33b35; }
+.year-comparison-neutral { color: var(--muted); }
 .summary-card.income { background: linear-gradient(120deg, #e6f6ed, #f3fbf5); border-left: 4px solid #38a879; }
 .summary-card.expense { background: linear-gradient(120deg, #fff0e9, #fff8f4); border-left: 4px solid #ef805f; }
 .summary-card.balance { background: linear-gradient(120deg, #e8f2f5, #f5f9fa); border-left: 4px solid #287c91; }
@@ -650,6 +666,10 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .contribution-metric { background: #fff; border: 1px solid #e1ebe5; border-radius: .8rem; display: grid; gap: .3rem; min-width: 0; padding: .75rem .85rem; }
 .contribution-metric > span { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }
 .contribution-metric > strong { color: var(--navy); font-size: clamp(1rem, 1.7vw, 1.35rem); overflow-wrap: anywhere; }
+.contribution-metric-button { appearance: none; color: inherit; cursor: pointer; font: inherit; text-align: left; width: 100%; }
+.contribution-metric-button > small { color: var(--muted); font-size: .68rem; font-weight: 700; }
+.contribution-metric-button:hover, .contribution-metric-button:focus-visible,
+.contribution-metric-button[aria-pressed="true"] { border-color: #8db8a0; box-shadow: 0 0 0 2px rgb(23 107 72 / 12%); outline: none; }
 .contribution-metric-paid { background: #edf8f2; border-color: #d4ebdd; }
 .contribution-metric-paid > strong { color: #176b48; }
 .contribution-metric-overdue { background: #fff3ef; border-color: #f0d9d2; }
@@ -734,6 +754,9 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
   gap: .35rem;
   margin: 0 0 1.1rem;
   padding: .3rem;
+  position: sticky;
+  top: 4.5rem;
+  z-index: 1;
 }
 .finance-section-tab {
   align-items: center;
@@ -774,8 +797,39 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .finance-nav-count-overdue { background: #f9ded8; color: #922d27; }
 .finance-view[hidden] { display: none !important; }
 .finance-view:focus { outline: 0; }
-.bookings-heading { margin: .1rem 0 .8rem; }
-.bookings-heading h3 { color: var(--navy); font-size: 1.25rem; margin: 0; }
+.bookings-panel { margin: .1rem 0 1.1rem; }
+.bookings-panel > summary {
+  align-items: center;
+  background: #f6f9f7;
+  border: 1px solid var(--line);
+  border-radius: .8rem;
+  color: var(--navy);
+  cursor: pointer;
+  display: flex;
+  font-size: 1.1rem;
+  font-weight: 800;
+  gap: .65rem;
+  list-style: none;
+  padding: .8rem 1rem;
+}
+.bookings-panel > summary::-webkit-details-marker { display: none; }
+.bookings-panel > summary::before {
+  align-items: center;
+  background: #e5f0e9;
+  border-radius: 50%;
+  color: #315f48;
+  content: "+";
+  display: inline-flex;
+  flex: 0 0 1.5rem;
+  height: 1.5rem;
+  justify-content: center;
+  line-height: 1;
+  width: 1.5rem;
+}
+.bookings-panel[open] > summary::before { content: "−"; }
+.bookings-panel > summary:focus-visible { outline: 3px solid #287c91; outline-offset: 2px; }
+.bookings-panel[open] > summary { margin-bottom: .8rem; }
+.bookings-panel .analytics-grid { margin-top: 0; }
 .contribution-alert {
   align-items: center;
   background: #f0f7f2;
@@ -794,6 +848,60 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .contribution-alert-due p { color: #754600; }
 .contribution-alert-overdue { background: #fff5f1; border-color: #f0d9d2; border-left-color: #c9483e; }
 .contribution-alert-overdue p { color: #922d27; }
+.contribution-member-filters {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin: 0 0 .45rem;
+}
+.contribution-member-filters label {
+  color: #294758;
+  display: grid;
+  font-size: .8rem;
+  font-weight: 750;
+  gap: .25rem;
+}
+.contribution-member-filters input { min-width: min(15rem, 70vw); }
+.contribution-filter-status { color: #526d76; font-size: .76rem; margin: 0 0 .65rem; }
+.contribution-table tbody tr[hidden] { display: none !important; }
+#retry-contributions { margin-top: .45rem; }
+.contribution-outstanding { color: #922d27; font-weight: 850; }
+
+.recent-transactions {
+  background: #f7faf8;
+  border: 1px solid #e3ece7;
+  border-radius: .95rem;
+  margin: 0 0 1rem;
+  padding: .9rem 1rem;
+}
+.recent-transactions-heading {
+  align-items: center;
+  display: flex;
+  gap: .75rem;
+  justify-content: space-between;
+  margin-bottom: .55rem;
+}
+.recent-transactions-heading h3 { color: var(--navy); font-size: .95rem; margin: 0; }
+.recent-transactions-heading p { color: var(--muted); font-size: .74rem; margin: .15rem 0 0; }
+.recent-transactions-list { list-style: none; margin: 0; padding: 0; }
+.recent-transaction {
+  align-items: center;
+  border-top: 1px solid #e4ece7;
+  display: grid;
+  gap: .5rem .9rem;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: .55rem 0;
+}
+.recent-transaction-main { display: grid; gap: .12rem; min-width: 0; }
+.recent-transaction-main strong { color: #294758; font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-transaction-main span { color: var(--muted); font-size: .73rem; }
+.recent-transaction-amount { font-size: .85rem; white-space: nowrap; }
+.recent-transaction-income .recent-transaction-amount { color: #176b48; }
+.recent-transaction-expense .recent-transaction-amount { color: #a33b35; }
+.recent-transaction > small { font-size: .7rem; white-space: nowrap; }
+.recent-transactions-feedback { align-items: center; display: flex; flex-wrap: wrap; gap: .5rem; }
+.recent-transactions-feedback .status { font-size: .74rem; margin: 0; }
 
 .summary-grid { gap: .85rem; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: .7rem 0 .55rem; }
 .summary-card { min-width: 0; }
@@ -846,6 +954,9 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 
 .finance-section > .table-scroll { border-color: #e0e8e4; border-radius: .9rem; }
 .finance-section > .table-scroll > table:not(.contribution-table) { min-width: 68rem; }
+#transaction-list .transaction-mobile-toggle,
+#transaction-list .transaction-mobile-details { display: none; }
+#transaction-list .transaction-action-list { display: flex; flex-wrap: wrap; justify-content: flex-end; }
 #transaction-list td { font-size: .82rem; }
 #transaction-list td:nth-child(4) { color: #243f4c; font-weight: 700; }
 #transaction-list td:nth-child(8) { font-size: .75rem; }
@@ -854,6 +965,22 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 #transaction-list .negative { color: #a33b35; font-weight: 800; }
 #transaction-list .transaction-actions { text-align: right; }
 #transaction-list .transaction-actions .button { box-shadow: none; }
+.transaction-feedback { align-items: center; display: flex; flex-wrap: wrap; gap: .5rem .8rem; margin: .35rem 0 .65rem; }
+.transaction-feedback .status { margin: 0; }
+.transaction-empty-state {
+  align-items: center;
+  background: #f7faf8;
+  border: 1px dashed #cbdcd3;
+  border-radius: .85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .9rem;
+  justify-content: center;
+  margin: .75rem 0;
+  padding: 1.25rem;
+  text-align: center;
+}
+.transaction-empty-state p { color: #526d76; margin: 0; }
 .pagination { color: #526d76; font-size: .85rem; margin: .85rem 0 1.1rem; }
 .setup-status { border-color: #e4ece7; font-size: .78rem; }
 #finance-status:empty { display: none; }
@@ -895,6 +1022,58 @@ dialog { border: 1px solid #e0e9e5; max-width: 34rem; }
   #transaction-list td:nth-child(4) { font-size: .9rem; }
   #transaction-list td:nth-child(9) { overflow-wrap: anywhere; }
   #transaction-list .transaction-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  #transaction-list td[data-label="Konto"],
+  #transaction-list td[data-label="Typ"],
+  #transaction-list td[data-label="Kategorie"],
+  #transaction-list td[data-label="Geändert"] { display: none; }
+  #transaction-list td[data-label="Beschreibung"] {
+    align-items: stretch;
+    display: grid;
+    gap: .45rem;
+    grid-template-columns: minmax(0, 1fr);
+    text-align: left;
+  }
+  #transaction-list td[data-label="Beschreibung"]::before { flex: initial; }
+  #transaction-list .transaction-mobile-toggle {
+    background: #f5f8f6;
+    border: 1px solid #dce7e1;
+    border-radius: .5rem;
+    color: #31574b;
+    display: inline-flex;
+    font-size: .74rem;
+    font-weight: 750;
+    justify-self: start;
+    min-height: 2rem;
+    padding: .35rem .55rem;
+  }
+  #transaction-list .transaction-mobile-toggle:hover { background: #eaf1ed; }
+  #transaction-list .transaction-mobile-details {
+    color: #526d76;
+    display: grid;
+    font-size: .75rem;
+    gap: .3rem;
+    overflow-wrap: anywhere;
+  }
+  #transaction-list .transaction-mobile-details[hidden] { display: none; }
+  #transaction-list .transaction-mobile-details strong { color: #31574b; }
+  #transaction-list td.transaction-actions {
+    align-items: flex-end;
+    display: grid;
+    gap: .45rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #transaction-list .transaction-action-list {
+    display: none;
+  }
+  #transaction-list .transaction-action-list.is-expanded {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+    justify-content: flex-end;
+  }
+  .transaction-feedback { align-items: flex-start; flex-direction: column; }
+  .transaction-empty-state { align-items: stretch; flex-direction: column; }
+  .transaction-empty-state .button { align-self: center; }
 }
 @media (max-width: 34rem) {
   .site-header { grid-template-columns: auto 1fr; }
@@ -913,6 +1092,7 @@ main { max-width: 86rem; }
   background: #fff;
   border-color: #e2e9e6;
   border-radius: 1.1rem;
+  overflow: clip;
   box-shadow: 0 .5rem 1.5rem rgb(20 52 63 / 6%);
 }
 .finance-section > .section-heading { align-items: center; }
@@ -977,9 +1157,17 @@ main { max-width: 86rem; }
   .finance-section { border-radius: .9rem; padding: 1rem; }
   .finance-section > .section-heading { align-items: flex-start; }
   .finance-section-nav { gap: .15rem; margin-bottom: .85rem; }
+  .finance-section-nav { top: 0; }
   .finance-section-tab { font-size: .8rem; padding-inline: .35rem; }
   .contribution-alert { align-items: stretch; flex-direction: column; }
   .contribution-alert .button { align-self: flex-start; }
+  .contribution-member-filters { align-items: stretch; display: grid; grid-template-columns: minmax(0, 1fr); }
+  .contribution-member-filters label, .contribution-member-filters input,
+  .contribution-member-filters select, .contribution-member-filters .button { min-width: 0; width: 100%; }
+  .recent-transactions-heading { align-items: flex-start; flex-direction: column; }
+  .recent-transaction { grid-template-columns: minmax(0, 1fr) auto; }
+  .recent-transaction > small { grid-column: 1 / -1; justify-self: end; }
+  .contribution-table td.contribution-outstanding { font-weight: 850; }
   .site-header { position: static; }
   .summary-card { min-width: 0; }
   .summary-card span { font-size: .68rem; }

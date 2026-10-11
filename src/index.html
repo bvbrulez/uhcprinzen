@@ -40,8 +40,8 @@
           <section id="finance-view-overview" class="finance-view" aria-label="Finanzübersicht" tabindex="-1">
           <div class="summary-grid">
             <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
-            <div class="summary-card income"><span>Gesamteinnahmen · beide Konten</span><strong id="total-income">0,00 €</strong></div>
-            <div class="summary-card expense"><span>Gesamtausgaben · beide Konten</span><strong id="total-expenses">0,00 €</strong></div>
+            <div class="summary-card income"><span id="total-income-label">Gesamteinnahmen · aktuelles Jahr · beide Konten</span><strong id="total-income">0,00 €</strong><small id="income-year-comparison" class="year-comparison">Vorjahresvergleich wird geladen …</small></div>
+            <div class="summary-card expense"><span id="total-expenses-label">Gesamtausgaben · aktuelles Jahr · beide Konten</span><strong id="total-expenses">0,00 €</strong><small id="expenses-year-comparison" class="year-comparison">Vorjahresvergleich wird geladen …</small></div>
           </div>
           <p id="summary-period" class="summary-period" aria-live="polite"></p>
           <div class="account-summary-grid">
@@ -52,12 +52,23 @@
             <p id="contribution-alert-message">Beitragsstatus wird geladen …</p>
             <button class="button button-secondary button-edit" type="button" data-finance-view="contributions">Beiträge anzeigen</button>
           </aside>
+          <section class="recent-transactions" aria-labelledby="recent-transactions-heading">
+            <div class="recent-transactions-heading">
+              <div><h3 id="recent-transactions-heading">Letzte Buchungen</h3><p>Die fünf neuesten Buchungen seit Beginn der Verwaltung.</p></div>
+              <button class="button button-secondary button-edit" type="button" data-finance-view="bookings">Alle Buchungen</button>
+            </div>
+            <ul id="recent-transactions-list" class="recent-transactions-list"></ul>
+            <div class="recent-transactions-feedback">
+              <p id="recent-transactions-status" class="status" role="status" aria-live="polite">Nach der Anmeldung werden die letzten Buchungen angezeigt.</p>
+              <button id="retry-recent-transactions" class="button button-secondary button-edit" type="button" hidden>Erneut laden</button>
+            </div>
+          </section>
           <section class="reconciliation-summary" aria-labelledby="reconciliation-summary-heading">
             <h3 id="reconciliation-summary-heading">Abgleich nach Konto · <span id="reconciliation-period"></span></h3>
             <p class="analytics-caption">Anzahl und Bruttosumme der Buchungen; unabhängig von den übrigen Filtern.</p>
             <div class="reconciliation-summary-grid">
-              <article class="reconciliation-account"><h4>Bankkonto</h4><p>Offen <strong id="bank-open-summary">–</strong></p><p>Abgeglichen <strong id="bank-reconciled-summary">–</strong></p></article>
-              <article class="reconciliation-account"><h4>PayPal-Konto</h4><p>Offen <strong id="paypal-open-summary">–</strong></p><p>Abgeglichen <strong id="paypal-reconciled-summary">–</strong></p></article>
+              <article class="reconciliation-account"><h4>Bankkonto</h4><p>Offen <button id="bank-open-summary" class="reconciliation-summary-link" type="button" aria-label="Offene Bankbuchungen anzeigen">–</button></p><p>Abgeglichen <strong id="bank-reconciled-summary">–</strong></p></article>
+              <article class="reconciliation-account"><h4>PayPal-Konto</h4><p>Offen <button id="paypal-open-summary" class="reconciliation-summary-link" type="button" aria-label="Offene PayPal-Buchungen anzeigen">–</button></p><p>Abgeglichen <strong id="paypal-reconciled-summary">–</strong></p></article>
             </div>
           </section>
           <p class="finance-explanation">Die Verwaltung beginnt am 01.10.2026. Bank- und PayPal-Salden enthalten den jeweiligen Startsaldo sowie alle Buchungen ab diesem Datum bis zum Ende des ausgewählten Zeitraums. Einnahmen, Ausgaben und Auswertungen beziehen sich auf den ausgewählten Zeitraum; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
@@ -69,11 +80,25 @@
               <label>Jahr <select id="contribution-year" aria-label="Jahr der Beitragsübersicht"></select></label>
             </div>
             <div id="contribution-summary" class="contribution-summary" role="status" aria-live="polite">Beitragsübersicht wird geladen …</div>
+            <div class="contribution-member-filters">
+              <label>Mitglied suchen <input id="contribution-member-search" type="search" placeholder="Name eingeben" /></label>
+              <label>Status
+                <select id="contribution-member-status">
+                  <option value="all">Alle Mitglieder</option>
+                  <option value="open">Mit offenen Beiträgen</option>
+                  <option value="overdue">Mit überfälligen Beiträgen</option>
+                  <option value="due">Mit Beiträgen innerhalb der Frist</option>
+                  <option value="paid">Alle fälligen Beiträge bezahlt</option>
+                </select>
+              </label>
+              <button id="reset-contribution-filters" class="button button-secondary button-edit" type="button">Zurücksetzen</button>
+            </div>
+            <p id="contribution-filter-status" class="contribution-filter-status" role="status" aria-live="polite"></p>
             <p class="contribution-deadline-note">Beiträge sind bis zum 15. des ersten Quartalsmonats fällig. Offene Beiträge sind bis dahin orange markiert, danach rot.</p>
             <div id="contribution-table-scroll" class="table-scroll" tabindex="-1">
               <table class="contribution-table">
                 <caption>Beitragsstatus pro Mitglied und Quartal</caption>
-                <thead><tr><th>Mitglied</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Status</th><th data-admin-only hidden>Mitglied verwalten</th></tr></thead>
+                <thead><tr><th>Mitglied</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Offen (€)</th><th>Status</th><th data-admin-only hidden>Mitglied verwalten</th></tr></thead>
                 <tbody id="contribution-list"></tbody>
               </table>
             </div>
@@ -111,10 +136,12 @@
               </div>
             </details>
             <p id="contribution-error" class="status status-error" role="alert" hidden></p>
+            <button id="retry-contributions" class="button button-secondary" type="button" hidden>Beitragsübersicht erneut laden</button>
           </section>
           </section>
           <section id="finance-view-bookings" class="finance-view" aria-label="Buchungen" tabindex="-1" hidden>
-          <div class="bookings-heading"><h3>Auswertungen</h3></div>
+          <details id="analytics-panel" class="bookings-panel" open>
+            <summary>Auswertungen</summary>
           <div class="analytics-grid">
             <section class="analytics-card" aria-labelledby="monthly-heading">
               <h3 id="monthly-heading">Monatsübersicht</h3>
@@ -136,7 +163,9 @@
               </details>
             </section>
           </div>
-          <div class="bookings-heading"><h3>Buchungen</h3></div>
+          </details>
+          <details id="transactions-panel" class="bookings-panel" open>
+            <summary>Buchungen</summary>
           <div class="finance-toolbar">
             <div class="filter-controls">
               <fieldset class="filter-group period-filter-group">
@@ -197,22 +226,29 @@
             <div id="saved-filter-chips" class="saved-filter-chips" role="group" aria-label="Gespeicherte Filter"></div>
             <button id="save-filter" class="button button-secondary button-edit" type="button">Aktuelle Filter speichern</button>
           </div>
+          <div class="transaction-feedback">
+            <p id="finance-status" class="status" role="status" aria-live="polite"></p>
+            <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
+          </div>
           <div class="table-scroll">
             <table><caption class="sr-only">Buchungen</caption><thead><tr><th id="transaction-select-header" hidden data-admin-only><input id="select-visible-transactions" type="checkbox" aria-label="Offene Buchungen dieser Seite auswählen" /></th><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Abgleich</th><th>Geändert</th><th id="transactions-actions-header" hidden data-admin-only><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
+          </div>
+          <div id="transaction-empty-state" class="transaction-empty-state" role="status" hidden>
+            <p id="transaction-empty-message"></p>
+            <button id="reset-empty-transaction-filters" class="button button-secondary button-edit" type="button" hidden>Filter zurücksetzen</button>
           </div>
           <div class="pagination">
             <button id="previous-page" class="button button-secondary" type="button" disabled>← Zurück</button>
             <span id="page-status" class="muted"></span>
             <button id="next-page" class="button button-secondary" type="button" disabled>Weiter →</button>
           </div>
+          </details>
           </section>
-          <p id="finance-status" class="status" role="status" aria-live="polite"></p>
           <div class="setup-status" aria-label="Supabase-Einrichtungsdiagnose">
             <p id="database-setup-status" role="status">Datenbankzugriff: wird geprüft …</p>
             <p id="report-setup-status" role="status">Berichtsfunktionen: werden geprüft …</p>
             <p id="write-setup-status" role="status">Schreibrechte: werden bei der ersten Änderung geprüft.</p>
           </div>
-          <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
         </div>
         <p id="finance-login-hint" class="muted">Die Finanzdaten sind aus Datenschutzgründen nur für angemeldete Mitglieder sichtbar. Melde dich an, um die Mannschaftskasse zu sehen.</p>
       </section>
