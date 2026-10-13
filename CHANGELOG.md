@@ -6,6 +6,31 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-13:
+- `M – .githooks/README.md`
+- `M – .github/workflows/pages.yml`
+- `M – README.md`
+- `A – VERSION`
+- `A – scripts/release-version.mjs`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/styles/base.css`
+- `M – tests/e2e/access-control.spec.mjs`
+- `A – tests/unit/release-version.test.mjs`
+
+### Automatische SemVer-Versionierung und Footer-Anzeige ergänzt
+
+- Versionsnummer im Footer ergänzt und `VERSION` als kanonische
+  Versionsquelle eingeführt.
+- Release-Workflow erhöht die SemVer-Version anhand der Conventional Commits
+  jedes Pushes nach `main`, aktualisiert den datierten Changelog-Abschnitt und
+  veröffentlicht den versionierten Stand nach erfolgreichen Prüfungen.
+- README und Hook-Dokumentation zu den Major-, Minor- und Patch-Regeln
+  aktualisiert; Release-Skript und Tests ergänzt.
+- Beleg-Popup-Navigation und zugehörige Playwright-URL-Prüfung stabilisiert.
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-13:
 - `M – README.md`
 - `M – supabase/migrations/20261014080000_contribution_rates_revoke_write.sql`
 

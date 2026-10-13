@@ -7,21 +7,52 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
-  # Keep only the latest Pages deployment in progress.
+  # Serialize releases so concurrent pushes cannot race while updating VERSION.
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   checks:
     uses: ./.github/workflows/tests.yml
 
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.commit_sha || steps.manual.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Calculate and record the next SemVer release
+        if: github.event_name == 'push'
+        env:
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_AFTER_SHA: ${{ github.sha }}
+        run: node scripts/release-version.mjs
+      - name: Commit and push release metadata
+        id: commit
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION src/index.html CHANGELOG.md
+          git commit -m "chore(release): v$(cat VERSION)" \
+            -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+          git push origin HEAD:main
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Keep the current commit for manual deployments
+        id: manual
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   deploy:
-    needs: checks
+    needs: [checks, release]
     if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
@@ -29,6 +60,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.commit_sha }}
       - uses: actions/configure-pages@v5
         with:
           enablement: true

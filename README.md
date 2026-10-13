@@ -318,8 +318,15 @@ vertrauenswürdigen Supabase-Admin-Kontext vornehmen, nie aus dem Browser.
 
 Ein Push auf `main` veröffentlicht `src/` auf GitHub Pages, nachdem Unit-,
 SQL- und lokale Supabase-Browsertests für denselben Commit erfolgreich waren.
-Der versionierte Hook ergänzt beim Commit die geänderten Dateien im
-`CHANGELOG.md`. Einmal pro Clone aktivieren:
+Die Versionsnummer wird bei jedem Push nach den Conventional-Commit-Regeln
+automatisch erhöht: `!` oder `BREAKING CHANGE` erhöht Major, `feat` erhöht
+Minor und alle anderen Pushes erhöhen Patch. Der Release-Workflow aktualisiert
+`VERSION`, die Versionsanzeige im Footer und einen datierten
+Versionsabschnitt in `CHANGELOG.md`, committet diese Metadaten und veröffentlicht
+genau diesen Stand. `VERSION` startet bei `1.0.0`.
+
+Der versionierte `pre-commit`-Hook ergänzt zusätzlich die im lokalen Commit
+geänderten Dateien im Changelog. Einmal pro Clone aktivieren:
 
 ```sh
 git config core.hooksPath .githooks

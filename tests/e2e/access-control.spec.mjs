@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("finance data stays hidden until a member signs in", async ({ page }) => {
   await page.goto("/");
+  await expect(page.locator("#app-version")).toHaveText(/^v\d+\.\d+\.\d+$/);
   await expect(page.locator("#login-toggle")).toBeVisible();
   await expect(page.locator("#finance-content")).toBeHidden();
   await expect(page.locator("#finance-login-hint")).toBeVisible();
@@ -222,7 +223,7 @@ test("administrator can attach a private receipt for members to view", async ({ 
   const popupPromise = page.waitForEvent("popup");
   await memberRow.getByRole("button", { name: /Beleg ansehen: e2e-receipt\.pdf/ }).click();
   const receiptPage = await popupPromise;
-  await expect.poll(() => receiptPage.url()).toContain("/storage/v1/object/sign/transaction-receipts/");
+  await expect(receiptPage).toHaveURL(/\/storage\/v1\/object\/sign\/transaction-receipts\//, { timeout: 15000 });
   await receiptPage.close();
 
   await page.locator("#logout-button").click();

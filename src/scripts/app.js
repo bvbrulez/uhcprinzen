@@ -1230,7 +1230,7 @@ async function openTransactionReceipt(transaction) {
   receiptWindow.opener = null;
   try {
     const signedUrl = await transactionService.createReceiptUrl(transaction.receipt_path);
-    receiptWindow.location.href = signedUrl;
+    receiptWindow.location.replace(signedUrl);
   } catch (error) {
     receiptWindow.close();
     setFinanceStatus(`Beleg konnte nicht geöffnet werden: ${error.message}`, "status-error");
