@@ -103,7 +103,7 @@ test("member can read the finance view but cannot see admin controls", async ({ 
   await page.locator('.finance-section-tab[data-finance-view="contributions"]').click();
   await expect(page.locator("#contribution-heading")).toBeVisible();
   await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
-  await expect(page.locator("#transaction-list")).toBeVisible();
+  await expect(page.locator("#finance-view-bookings")).toBeVisible();
   expect(await page.locator("[data-admin-only]").evaluateAll(items => items.every(item => item.hidden))).toBe(true);
 });
 

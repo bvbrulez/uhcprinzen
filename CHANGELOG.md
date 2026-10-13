@@ -3,6 +3,11 @@
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 ## 2026-10-13
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-13:
+- `M – tests/e2e/access-control.spec.mjs`
+
 
 ### Version 1.1.0
 
