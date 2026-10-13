@@ -40,7 +40,7 @@ jobs:
             range="${BEFORE_SHA}..${AFTER_SHA}"
           fi
 
-          mapfile -t commits < <(git rev-list --reverse "$range")
+          mapfile -t commits < <(git rev-list --reverse --no-merges "$range")
           if ((${#commits[@]} == 0)); then
             echo "No commits to validate."
             exit 0
