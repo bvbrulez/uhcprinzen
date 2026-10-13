@@ -6,6 +6,17 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-13:
+- `M – VERSION`
+- `M – src/index.html`
+
+
+### Version 1.1.1
+
+- fix(e2e): allow empty member bookings view
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-13:
 - `M – src/index.html`
 
 ### Änderungen aus diesem Commit
