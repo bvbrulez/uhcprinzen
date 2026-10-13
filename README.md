@@ -274,9 +274,12 @@ geltenden Aufbewahrungsfristen aufbewahren.
 Neue Änderungen für bestehende Installationen kommen als fortlaufend
 nummerierte SQL-Dateien nach `supabase/migrations/` und werden geprüft,
 gesichert und zuerst in Staging getestet. Die Datei
+`20261014080000_contribution_rates_revoke_write.sql` entfernt geerbte
+Schreibrechte auf Beitragssätzen, und
 `20261014090000_transaction_receipt_member_read.sql` ergänzt die Lesepolicy
-für Belege; sie ist für Projekte gedacht, die das bisherige Schema bereits
-installiert haben. Neue Projekte verwenden weiterhin die Reihenfolge
+für Belege. Beide sind für Projekte gedacht, die das bisherige Schema bereits
+installiert haben; in der Reihenfolge des Zeitstempels ausführen. Neue
+Projekte verwenden weiterhin die Reihenfolge
 `base-schema.sql` und danach `schema.sql`. Das bestehende
 `supabase/schema.sql` ist ein historisches Delta-/Setup-Skript und bereinigt
 Buchungen vor dem 01.10.2026 samt Zuordnungen; es ist **keine** sichere,

@@ -705,6 +705,7 @@ create index if not exists team_contribution_quarters_date_idx
 alter table public.team_contribution_payments enable row level security;
 alter table public.team_contribution_payment_quarters enable row level security;
 alter table public.team_contribution_rates enable row level security;
+revoke all privileges on table public.team_contribution_rates from public, anon, authenticated;
 grant select, delete on public.team_contribution_payments to authenticated;
 grant usage, select on sequence public.team_contribution_payments_id_seq to authenticated;
 grant select on public.team_contribution_payment_quarters to authenticated;

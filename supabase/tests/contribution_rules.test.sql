@@ -120,7 +120,9 @@ select throws_ok(
 
 select ok(
   not has_table_privilege('authenticated', 'public.team_contribution_rates', 'INSERT')
-  and not has_table_privilege('authenticated', 'public.team_contribution_rates', 'UPDATE'),
+  and not has_table_privilege('authenticated', 'public.team_contribution_rates', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.team_contribution_rates', 'DELETE')
+  and not has_table_privilege('authenticated', 'public.team_contribution_rates', 'TRUNCATE'),
   'Authenticated clients cannot write directly to the contribution-rate table'
 );
 

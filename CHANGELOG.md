@@ -6,6 +6,14 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-13:
+- `M – README.md`
+- `A – supabase/migrations/20261014080000_contribution_rates_revoke_write.sql`
+- `M – supabase/schema.sql`
+- `M – supabase/tests/contribution_rules.test.sql`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-13:
 - `M – .github/copilot-instructions.md`
 - `M – .github/workflows/pages.yml`
 - `M – .github/workflows/tests.yml`
@@ -47,6 +55,16 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Beitragszuordnung, Wiederholungsstatus und Zeitraum-Schnellwahl für die
   Finanzübersicht weiter verbessert.
 - Unit- und Browserprüfungen sowie README und Modulübersicht aktualisiert.
+
+### Vererbte Schreibrechte auf Beitragssätzen entfernt
+
+- Bereits gewährte Tabellenrechte für `PUBLIC`, `anon` und `authenticated`
+  werden explizit widerrufen; angemeldete Mitglieder behalten ausschließlich
+  Leserechte auf Beitragssätze.
+- Neue Migration `20261014080000_contribution_rates_revoke_write.sql` ergänzt,
+  die vor der Beleg-Lesepolicy-Migration auszuführen ist.
+- pgTAP-Berechtigungsprüfung auf `INSERT`, `UPDATE`, `DELETE` und `TRUNCATE`
+  erweitert.
 
 ## 2026-10-11
 ### Änderungen aus diesem Commit
