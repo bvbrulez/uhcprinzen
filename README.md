@@ -285,6 +285,13 @@ Projekte verwenden weiterhin die Reihenfolge
 Buchungen vor dem 01.10.2026 samt Zuordnungen; es ist **keine** sichere,
 automatisch ausführbare Produktionsmigration.
 
+Die Beitragssatz-Migration überspringt ihre Änderung mit einer SQL-Hinweis-
+meldung, falls `public.team_contribution_rates` noch nicht angelegt wurde.
+Diese Tabelle gehört zum vollständigen Anwendungsschema: fehlende Tabellen
+nicht durch blindes Ausführen des historischen Delta-Skripts auf einer
+Produktivdatenbank nachholen, sondern zuerst Backup, Datenbankstand und
+Upgradepfad prüfen.
+
 ### Supabase einrichten
 
 Für ein neues Projekt zuerst `supabase/base-schema.sql`, danach

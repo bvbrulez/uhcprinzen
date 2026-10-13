@@ -7,6 +7,12 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 - Aktualisiert am 2026-10-13:
 - `M – README.md`
+- `M – supabase/migrations/20261014080000_contribution_rates_revoke_write.sql`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-13:
+- `M – README.md`
 - `A – supabase/migrations/20261014080000_contribution_rates_revoke_write.sql`
 - `M – supabase/schema.sql`
 - `M – supabase/tests/contribution_rules.test.sql`
@@ -65,6 +71,14 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
   die vor der Beleg-Lesepolicy-Migration auszuführen ist.
 - pgTAP-Berechtigungsprüfung auf `INSERT`, `UPDATE`, `DELETE` und `TRUNCATE`
   erweitert.
+
+### Migration für Beitragssatz-Rechte abgesichert
+
+- Rechte-Migration prüft vor der Änderung, ob `public.team_contribution_rates`
+  existiert, und überspringt sie andernfalls mit einer SQL-Hinweismeldung.
+- README um den Umgang mit einem vorhandenen Datenbankschema ergänzt; das
+  historische Delta-Skript wird nicht als Reparatur für fehlende Tabellen
+  empfohlen.
 
 ## 2026-10-11
 ### Änderungen aus diesem Commit
