@@ -31,6 +31,12 @@ Die Beitragsliste priorisiert offene Fälle und weist den offenen Jahresbetrag
 je Mitglied aus. Auf der Finanzübersicht werden zusätzlich die fünf jüngsten
 Buchungen direkt angezeigt. Kennzahlen zu offenen Abgleichen und Beiträgen
 führen direkt zu den passenden Buchungs- beziehungsweise Mitgliederfiltern.
+Offene Quartale können im Adminbereich direkt der vorausgewählten Person und
+dem Quartal zugeordnet werden. Administratoren sehen außerdem fällige
+Wiederholungsbuchungen und können den Zeitraum der Übersicht schnell auf den
+aktuellen Monat, das Jahr oder benutzerdefinierte Daten stellen. Die
+Monats-/Jahresauswahl steuert Kontosalden und Auswertungen; Einnahmen- und
+Ausgabenjahressummen bleiben auf das laufende Jahr bis heute bezogen.
 
 ### Buchungen und Auswertungen
 
@@ -45,6 +51,16 @@ CSV-Exporte verwenden die aktiven Filter. Exporte sind auf 5.000 Buchungen
 begrenzt. Buchungen können nach dem Abgleich mit dem Kontoauszug einzeln oder
 gesammelt als abgeglichen markiert werden. Wiederholungsbuchungen werden als
 Vorlagen gepflegt und nur nach manueller Bestätigung erzeugt.
+
+Administratoren können zu einer Buchung einen PDF-, JPEG-, PNG- oder
+WebP-Beleg bis 10 MB hochladen, ersetzen oder entfernen. Belege werden privat
+gespeichert; angemeldete Mitglieder können Belege aktiver Buchungen über einen
+kurzlebigen, signierten Link ansehen. Der Monatsabschluss führt durch die
+Prüfung von Buchungen, Abgleichen, Quartalsbeiträgen und fälligen
+Wiederholungen. Nach Bestätigung aller Prüfschritte lässt sich ein
+eigenständiger HTML-Monatsbericht herunterladen und lokal archivieren. Er wird
+nicht automatisch in der Datenbank abgelegt. Der laufende Monat ist
+vorläufig; der Wiederholungsstatus im Bericht zeigt den Stand bei Erstellung.
 
 ```mermaid
 flowchart LR
@@ -114,39 +130,51 @@ npm test
 ```
 
 Die Node-Test-Suite prüft Datums- und Beitragsregeln, Filter der
-Beitragsübersicht, Supabase-Zugriffe für Beiträge sowie CSV-Import und -Export
-einschließlich Formel-Schutz. GitHub
-Actions führt diese Unit-Tests und eine JavaScript-Syntaxprüfung bei Pull
-Requests und Pushes auf `main` aus. Die SQL- und Browser-Tests sind optional
-und werden bei Bedarf separat gestartet:
+Beitragsübersicht, Supabase-Zugriffe für Beiträge und Belege sowie CSV-Import
+und -Export einschließlich Formel-Schutz. GitHub Actions führt bei Pull
+Requests und vor jedem Pages-Deployment Unit-, SQL- und Browsertests gegen
+eine frische, lokale Supabase-Instanz aus. Dafür werden keine
+Produktivzugangsdaten verwendet. Die gleichen lokalen Integrationstests lassen
+sich manuell starten:
 
 ```sh
 npm run test:db
 npm run test:e2e
 ```
 
-Für `test:db` ist die unten beschriebene lokale Wegwerf-Datenbank erforderlich.
+Für `test:db` ist die unten beschriebene lokale Wegwerf-Datenbank erforderlich;
+installiere das Schema dort vorher mit `npm run test:db:install`.
 Für `test:e2e` müssen die Browserabhängigkeiten installiert und – für die
 Mitglieds-/Admin- sowie Beitragsabläufe – lokale Testkonten und Testdaten
 konfiguriert sein.
 
-Die SQL-Integrationstests prüfen Beitragsraten, Zahlungszuordnungen, historische
-Snapshots, Berechtigungen und die Sperre für Wiederholungsbuchungen. Sie setzen
-eine **lokale, wegwerfbare Supabase/PostgreSQL-Datenbank** voraus, auf der
-`supabase/base-schema.sql` und anschließend `supabase/schema.sql` installiert
-sind. Die Migration löscht Buchungen vor dem 01.10.2026; führe sie niemals für
-Tests auf einer Produktivdatenbank aus. Danach:
+Für lokale SQL- und Browser-Integrationstests Docker und die Supabase CLI
+installieren und die flüchtige Instanz aus `supabase/config.toml` mit
+`supabase start` starten. Die SQL-Integrationstests prüfen Beitragsraten,
+Zahlungszuordnungen, historische Snapshots, Berechtigungen und die Sperre für
+Wiederholungsbuchungen. Sie setzen eine **lokale, wegwerfbare
+Supabase/PostgreSQL-Datenbank** mit `psql` und pgTAP voraus. Das
+Installationsskript prüft Loopback-Adresse und explizite Freigabe, bevor es
+`supabase/base-schema.sql` und danach `supabase/schema.sql` ausführt:
 
 ```sh
 TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres \
 ALLOW_DATABASE_TESTS=1 npm run test:db
 ```
 
-Die Datenbanktests benötigen `psql` und die PostgreSQL-Erweiterung `pgtap`.
-Der Runner verweigert nicht-lokale Verbindungen und verlangt die explizite
-Freigabe `ALLOW_DATABASE_TESTS=1`.
+Das Delta löscht historische Buchungen vor dem 01.10.2026. Installiere es
+ausschließlich in lokalen Wegwerf- oder ausdrücklich dafür vorgesehenen
+Testdatenbanken, niemals in Produktion.
 
-Optionale Browser-E2E-Tests prüfen Mitglieder-/Admin-Zugriff, CSV-Vorschau,
+Eine frische lokale Datenbank wird ausschließlich mit diesem loopback-geprüften
+Befehl eingerichtet:
+
+```sh
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres \
+ALLOW_DATABASE_TESTS=1 npm run test:db:install
+```
+
+Browser-E2E-Tests prüfen Mitglieder-/Admin-Zugriff, Monatsabschluss, CSV-Vorschau,
 Einnahmen-Paginierung und – mit einem vorbereiteten, unzugeordneten Testbeitrag –
 die komplette Quartalszuordnung samt Aufräumen. Sie benötigen Chromium und
 lokale Supabase-Testkonten:
@@ -166,6 +194,9 @@ Der erste Befehl installiert Chromium für die im Projekt installierte neueste
 Playwright-Version. Nach dem Setup lassen sich die E2E-Tests jederzeit mit
 `npm run test:e2e` erneut ausführen.
 
+Das Skript `tests/e2e/create-local-users.mjs` kann mit lokalen
+`SUPABASE_SERVICE_ROLE_KEY`- und `E2E_*`-Werten Administrator- und
+Mitgliedskonten anlegen; es verweigert Verbindungen außerhalb von Loopback.
 Die E2E-Testseite überschreibt die Browserkonfiguration ausschließlich für
 den Testserver und lässt nur Loopback-Supabase-URLs zu; verwende keine
 Produktivkonten. Für die Paginierungsprüfung mit mindestens 101 unzugeordneten
@@ -186,12 +217,14 @@ Umgebungsvariablen werden die passenden E2E-Tests übersprungen.
 - `src/scripts/csv-import-controller.mjs` – CSV-Importdialog, Mapping, Prüfung und Vorschau
 - `src/scripts/auth-service.mjs` – Supabase-Authentifizierung und Sitzungszugriff
 - `src/scripts/transaction-service.mjs` – Buchungs-, Kategorien-, Export- und Verlaufszugriffe
+- `src/scripts/month-close.mjs` – Monatsabschluss-Prüfliste und Archivbericht
 - `src/scripts/recurring-service.mjs` – Laden und Verwalten von Wiederholungsbuchungen
 - `src/scripts/latest-request.mjs` – verwirft verspätete Antworten älterer Filterabfragen
 - `src/scripts/finance-rules.mjs` – testbare Datums- und Beitragsregeln
 - `src/scripts/contribution-service.mjs` – Supabase-Datenzugriffe für Beiträge
 - `src/scripts/contribution-view-rules.mjs` – testbare Filterregeln für die Mitglieder-Beitragsübersicht
 - `src/scripts/csv-rules.mjs` – CSV-Parsing, Normalisierung und Importregeln
+- `supabase/migrations/` – versionierte, vorwärtsgerichtete SQL-Änderungen
 - `src/styles/` – Layout und responsive Gestaltung
 - `src/supabase-config.js` – öffentliche Supabase-Projekt-URL und anon key
 - `supabase/base-schema.sql` – Grundschema für ein neues Projekt
@@ -208,11 +241,54 @@ flowchart LR
     Pages --> Browser
 ```
 
+### Sicherungen und Schemaänderungen
+
+Vor jeder produktiven Schemaänderung eine aktuelle Sicherung über die
+Supabase-Projektsicherung oder einen freigegebenen `pg_dump`-Ablauf erstellen
+und prüfen. Datenbank-Dumps enthalten vertrauliche Finanz- und Mitgliederdaten:
+ausschließlich verschlüsselt und zugriffsbeschränkt speichern, niemals in Git
+oder CI-Artefakten ablegen. Mit `pg_restore --list datei.dump` lässt sich ein
+Custom-Format-Dump vor dem Restore auf Lesbarkeit prüfen. Ein Datenbank-Dump
+enthält nicht die privaten Dateien aus dem Storage-Bucket; deren Sicherung muss
+separat über einen freigegebenen Storage-Backup-Prozess erfolgen.
+
+Für einen freigegebenen lokalen `pg_dump`-Ablauf Zugangsdaten aus dem
+geheimnisgeschützten Passwortspeicher verwenden, nicht in die Shell-Historie
+schreiben:
+
+```sh
+umask 077
+pg_dump --format=custom --file=uhc-prinzen-backup.dump "$PRODUCTION_DB_URL"
+pg_restore --list uhc-prinzen-backup.dump
+```
+
+Einen Restore zuerst in ein **separates, leeres Staging-/Testprojekt**
+durchführen, zum Beispiel mit
+`pg_restore --exit-on-error --no-owner --no-acl --dbname="$STAGING_DB_URL" datei.dump`.
+Danach Tabellen, Policies, Funktionen und Belegdateien stichprobenartig prüfen.
+Niemals `--clean` oder einen Restore ungeprüft gegen die aktive
+Produktionsdatenbank ausführen. Wiederherstellungsschritte regelmäßig anhand
+einer aktuellen Sicherung testen und verschlüsselte Backups entsprechend den
+geltenden Aufbewahrungsfristen aufbewahren.
+
+Neue Änderungen für bestehende Installationen kommen als fortlaufend
+nummerierte SQL-Dateien nach `supabase/migrations/` und werden geprüft,
+gesichert und zuerst in Staging getestet. Die Datei
+`20261014090000_transaction_receipt_member_read.sql` ergänzt die Lesepolicy
+für Belege; sie ist für Projekte gedacht, die das bisherige Schema bereits
+installiert haben. Neue Projekte verwenden weiterhin die Reihenfolge
+`base-schema.sql` und danach `schema.sql`. Das bestehende
+`supabase/schema.sql` ist ein historisches Delta-/Setup-Skript und bereinigt
+Buchungen vor dem 01.10.2026 samt Zuordnungen; es ist **keine** sichere,
+automatisch ausführbare Produktionsmigration.
+
 ### Supabase einrichten
 
 Für ein neues Projekt zuerst `supabase/base-schema.sql`, danach
-`supabase/schema.sql` im Supabase SQL Editor ausführen. Bei einem bestehenden
-Projekt nur `supabase/schema.sql` ausführen. **Das Delta-Skript löscht
+`supabase/schema.sql` im Supabase SQL Editor ausführen. Für ein bestehendes,
+bereits aktualisiertes Projekt vor Änderungen ausschließlich die passende neue
+Migration aus `supabase/migrations/` ausführen; ältere Zwischenstände brauchen
+eine geprüfte und gesicherte Upgradeplanung. **Das Delta-Skript löscht
 Buchungen vor dem 01.10.2026 samt zugehörigem Änderungsverlauf und
 Beitragszuordnungen endgültig. Vor der Ausführung ein Datenbank-Backup
 erstellen.** Belegdateien im Storage werden dabei nicht gelöscht.
@@ -230,9 +306,10 @@ vertrauenswürdigen Supabase-Admin-Kontext vornehmen, nie aus dem Browser.
 
 ### Deployment und Changelog
 
-Ein Push auf `main` veröffentlicht `src/` über die GitHub Action automatisch
-auf GitHub Pages. Der versionierte Hook ergänzt beim Commit die geänderten
-Dateien im `CHANGELOG.md`. Einmal pro Clone aktivieren:
+Ein Push auf `main` veröffentlicht `src/` auf GitHub Pages, nachdem Unit-,
+SQL- und lokale Supabase-Browsertests für denselben Commit erfolgreich waren.
+Der versionierte Hook ergänzt beim Commit die geänderten Dateien im
+`CHANGELOG.md`. Einmal pro Clone aktivieren:
 
 ```sh
 git config core.hooksPath .githooks

@@ -204,3 +204,167 @@ test("propagates errors when recent transactions fail to load", async () => {
     failure,
   );
 });
+
+test("validates receipt type and size before uploading", async () => {
+  let uploadCalls = 0;
+  const service = createTransactionService({
+    storage: { from: () => ({ upload: async () => { uploadCalls += 1; } }) },
+  });
+  await assert.rejects(() => service.uploadReceipt(1, { name: "receipt.exe", type: "application/octet-stream", size: 10 }), /PDF-, JPEG-, PNG- oder WebP/);
+  await assert.rejects(() => service.uploadReceipt(1, { name: "large.pdf", type: "application/pdf", size: 10 * 1024 * 1024 + 1 }), /höchstens 10 MB/);
+  assert.equal(uploadCalls, 0);
+});
+
+test("uploads receipts privately and associates only after storage succeeds", async () => {
+  const calls = [];
+  const client = {
+    storage: {
+      from(bucket) {
+        return {
+          async upload(path, _file, options) {
+            calls.push(["upload", bucket, path, options]);
+            return { error: null };
+          },
+        };
+      },
+    },
+    from(table) {
+      calls.push(["from", table]);
+      return {
+        update(values) {
+          calls.push(["update", values]);
+          return this;
+        },
+        eq(column, value) {
+          calls.push(["eq", column, value]);
+          return this;
+        },
+        select(value) {
+          calls.push(["select", value]);
+          return this;
+        },
+        single: async () => ({ data: { id: 4 }, error: null }),
+      };
+    },
+  };
+  await createTransactionService(client).uploadReceipt(4, {
+    name: "../Kassenbon.pdf",
+    type: "application/pdf",
+    size: 100,
+  });
+
+  const [upload] = calls;
+  assert.equal(upload[0], "upload");
+  assert.equal(upload[1], "transaction-receipts");
+  assert.match(upload[2], /^4\/[0-9a-f-]+-Kassenbon\.pdf$/);
+  assert.equal(upload[3].contentType, "application/pdf");
+  assert.deepEqual(calls.find(call => call[0] === "update")[1], {
+    receipt_path: upload[2],
+    receipt_name: "../Kassenbon.pdf",
+  });
+});
+
+test("cleans up a receipt when the transaction update fails", async () => {
+  const calls = [];
+  const failure = new Error("transaction update failed");
+  const client = {
+    storage: {
+      from() {
+        return {
+          upload: async () => ({ error: null }),
+          remove: async paths => {
+            calls.push(paths);
+            return { error: null };
+          },
+        };
+      },
+    },
+    from() {
+      return {
+        update() { return this; },
+        eq() { return this; },
+        select() { return this; },
+        single: async () => ({ data: null, error: failure }),
+      };
+    },
+  };
+  await assert.rejects(() => createTransactionService(client).uploadReceipt(9, {
+    name: "Beleg.png",
+    type: "image/png",
+    size: 100,
+  }), failure);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0][0], /^9\//);
+});
+
+test("creates short-lived signed receipt URLs", async () => {
+  const calls = [];
+  const client = {
+    storage: {
+      from(bucket) {
+        return {
+          createSignedUrl: async (path, expiresIn) => {
+            calls.push([bucket, path, expiresIn]);
+            return { data: { signedUrl: "https://example.test/private-receipt" }, error: null };
+          },
+        };
+      },
+    },
+  };
+  assert.equal(await createTransactionService(client).createReceiptUrl("4/receipt.pdf"), "https://example.test/private-receipt");
+  assert.deepEqual(calls, [["transaction-receipts", "4/receipt.pdf", 60]]);
+});
+
+test("reports a receipt deletion cleanup failure after clearing its transaction reference", async () => {
+  const calls = [];
+  const client = {
+    from() {
+      return {
+        update(values) { calls.push(["update", values]); return this; },
+        eq() { return Promise.resolve({ error: null }); },
+      };
+    },
+    storage: {
+      from() {
+        return {
+          remove: async paths => {
+            calls.push(["remove", paths]);
+            return { error: new Error("storage unavailable") };
+          },
+        };
+      },
+    },
+  };
+  await assert.rejects(
+    () => createTransactionService(client).removeReceipt({ id: 3, receipt_path: "3/file.pdf" }),
+    /Der Belegverweis wurde entfernt.*storage unavailable/,
+  );
+  assert.deepEqual(calls[0][1], { receipt_path: null, receipt_name: null });
+  assert.deepEqual(calls[1], ["remove", ["3/file.pdf"]]);
+});
+
+test("loads unfiltered monthly analytics for the selected close period", async () => {
+  const calls = [];
+  const analytics = { totals: { income: 100, expenses: 25 } };
+  const service = createTransactionService({
+    rpc: async (name, args) => {
+      calls.push([name, args]);
+      return { data: analytics, error: null };
+    },
+  });
+  assert.equal(await service.loadMonthCloseAnalytics("2027-04", "2027-04-30"), analytics);
+  assert.deepEqual(calls, [[
+    "get_transaction_analytics",
+    {
+      p_year: 2027,
+      p_account: null,
+      p_type: null,
+      p_search: null,
+      p_start_date: "2027-04-01",
+      p_end_date: "2027-04-30",
+      p_reconciled: null,
+    },
+  ]]);
+  await assert.rejects(() => service.loadMonthCloseAnalytics("2027-13", "2027-12-31"), /Ungültiger Zeitraum/);
+  await assert.rejects(() => service.loadMonthCloseAnalytics("2027-04", "2027-04-31"), /Ungültiger Zeitraum/);
+});

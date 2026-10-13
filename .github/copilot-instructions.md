@@ -6,6 +6,8 @@ This repository is a static, browser-based frontend for the Wesselbleker Prinzen
 
 ## Build, run, and validation commands
 
+- code only no explanation
+
 The browser app has no build pipeline. Development test commands are:
 
 ```bash

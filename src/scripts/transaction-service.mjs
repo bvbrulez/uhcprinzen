@@ -1,4 +1,27 @@
 export function createTransactionService(client) {
+  const receiptBucket = "transaction-receipts";
+  const receiptMaxBytes = 10 * 1024 * 1024;
+  const receiptMimeTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+
+  function validateReceipt(file) {
+    if (!file || !receiptMimeTypes.has(file.type)) {
+      throw new Error("Belege müssen PDF-, JPEG-, PNG- oder WebP-Dateien sein.");
+    }
+    if (file.size > receiptMaxBytes) {
+      throw new Error("Belege dürfen höchstens 10 MB groß sein.");
+    }
+  }
+
+  function receiptObjectName(file) {
+    const baseName = (file.name || "beleg").replaceAll("\\", "/").split("/").at(-1);
+    const safeName = baseName
+      .normalize("NFC")
+      .replace(/[^\p{L}\p{N}._-]+/gu, "_")
+      .replace(/^\.+/, "")
+      .slice(0, 120) || "beleg";
+    return `${crypto.randomUUID()}-${safeName}`;
+  }
+
   async function loadYears(startDate) {
     const { data, error } = await client.rpc("get_transaction_years");
     if (!error) return (data || []).map(item => String(item.year));
@@ -21,6 +44,56 @@ export function createTransactionService(client) {
   }
 
   return {
+    async uploadReceipt(transactionId, file, previousPath = null) {
+      validateReceipt(file);
+      const path = `${transactionId}/${receiptObjectName(file)}`;
+      const { error: uploadError } = await client.storage.from(receiptBucket).upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await client.from("transactions")
+        .update({ receipt_path: path, receipt_name: file.name })
+        .eq("id", transactionId)
+        .select("id")
+        .single();
+      if (error || !data) {
+        const { error: cleanupError } = await client.storage.from(receiptBucket).remove([path]);
+        if (error && cleanupError) {
+          throw new Error(`Beleg konnte nicht zugeordnet werden (${error.message}); die hochgeladene Datei konnte auch nicht entfernt werden (${cleanupError.message}).`);
+        }
+        if (error) throw error;
+        throw new Error("Beleg konnte keiner Buchung zugeordnet werden.");
+      }
+      if (previousPath) {
+        const { error: cleanupError } = await client.storage.from(receiptBucket).remove([previousPath]);
+        if (cleanupError) {
+          throw new Error(`Der neue Beleg wurde gespeichert, der vorherige konnte aber nicht gelöscht werden: ${cleanupError.message}`);
+        }
+      }
+    },
+
+    async removeReceipt(transaction) {
+      if (!transaction.receipt_path) return;
+      const { error } = await client.from("transactions")
+        .update({ receipt_path: null, receipt_name: null })
+        .eq("id", transaction.id);
+      if (error) throw error;
+      const { error: removeError } = await client.storage.from(receiptBucket)
+        .remove([transaction.receipt_path]);
+      if (removeError) {
+        throw new Error(`Der Belegverweis wurde entfernt, die Datei konnte aber nicht gelöscht werden: ${removeError.message}`);
+      }
+    },
+
+    async createReceiptUrl(path) {
+      const { data, error } = await client.storage.from(receiptBucket).createSignedUrl(path, 60);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error("Für diesen Beleg konnte kein sicherer Link erstellt werden.");
+      return data.signedUrl;
+    },
+
     async addCategory(name) {
       const { error } = await client.from("transaction_categories").insert({ name });
       if (error) throw error;
@@ -68,7 +141,7 @@ export function createTransactionService(client) {
 
     async loadPage({ filters, page, pageSize, startDate, asOfDate }) {
       let query = client.from("transactions")
-        .select("id, type, account, description, amount, transaction_date, category, created_at, created_by_email, updated_at, updated_by_email, deleted_at, deleted_by_email, reconciled_at, reconciled_by_email", { count: "exact" })
+        .select("id, type, account, description, amount, transaction_date, category, created_at, created_by_email, updated_at, updated_by_email, deleted_at, deleted_by_email, reconciled_at, reconciled_by_email, receipt_path, receipt_name", { count: "exact" })
         .gte("transaction_date", filters.dateRange.start)
         .lte("transaction_date", filters.dateRange.end)
         .order("transaction_date", { ascending: false })
@@ -149,6 +222,32 @@ export function createTransactionService(client) {
         years: outcomes[4].value,
         categories: outcomes[5].value,
       };
+    },
+
+    async loadMonthCloseAnalytics(month, endDate) {
+      const parsedEndDate = /^\d{4}-\d{2}-\d{2}$/.test(endDate)
+        ? new Date(`${endDate}T00:00:00Z`)
+        : null;
+      if (
+        !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)
+        || !parsedEndDate
+        || Number.isNaN(parsedEndDate.valueOf())
+        || parsedEndDate.toISOString().slice(0, 10) !== endDate
+        || !endDate.startsWith(`${month}-`)
+      ) {
+        throw new Error("Ungültiger Zeitraum für den Monatsabschluss.");
+      }
+      const { data, error } = await client.rpc("get_transaction_analytics", {
+        p_year: Number(month.slice(0, 4)),
+        p_account: null,
+        p_type: null,
+        p_search: null,
+        p_start_date: `${month}-01`,
+        p_end_date: endDate,
+        p_reconciled: null,
+      });
+      if (error) throw error;
+      return data || {};
     },
 
     async loadAudit(transactionId) {

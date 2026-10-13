@@ -41,6 +41,28 @@
 .reconciliation-account h4 { color: var(--navy); grid-column: 1 / -1; margin: 0 0 .2rem; }
 .reconciliation-account p { color: var(--muted); font-size: .8rem; margin: 0; }
 .reconciliation-account strong { color: var(--navy); display: block; font-size: .86rem; }
+.recurring-overview, .month-close-overview {
+  align-items: center;
+  background: #f6f9f7;
+  border: 1px solid #e3ece7;
+  border-left: 4px solid #648d72;
+  border-radius: .85rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin: 0 0 1rem;
+  padding: .75rem .9rem;
+}
+.recurring-overview h3, .month-close-overview h3 { color: var(--navy); font-size: .88rem; margin: 0; }
+.recurring-overview p, .month-close-overview p { color: var(--muted); font-size: .78rem; margin: .15rem 0 0; }
+.month-close-summary { background: #f7faf9; border-radius: .65rem; margin: .85rem 0; padding: .5rem .8rem; }
+.month-close-summary p { margin: .3rem 0; }
+.month-close-checklist { display: grid; gap: .55rem; list-style: none; margin: .8rem 0; padding: 0; }
+.month-close-checklist li { align-items: flex-start; background: #f7faf9; border: 1px solid var(--line); border-radius: .6rem; display: flex; gap: .65rem; padding: .7rem; }
+.month-close-checklist li input { flex: 0 0 auto; margin-top: .25rem; }
+.month-close-checklist li span { display: grid; gap: .15rem; }
+.month-close-checklist small { color: var(--muted); }
+.transaction-receipt-button { display: block; margin-top: .35rem; }
 .reconciliation-summary-link {
   background: transparent;
   border: 0;
@@ -198,6 +220,9 @@ td[hidden], th[hidden] { display: none !important; }
 .year-comparison-positive { color: #176b48; }
 .year-comparison-negative { color: #a33b35; }
 .year-comparison-neutral { color: var(--muted); }
+.overview-period-controls { align-items: center; display: flex; flex-wrap: wrap; gap: .45rem; margin: -.35rem 0 1rem; }
+.overview-period-controls > span { color: var(--muted); font-size: .78rem; font-weight: 750; margin-right: .2rem; }
+.overview-period-controls [aria-pressed="true"] { background: #eaf4ee; border-color: #8db8a0; color: #174f37; }
 .summary-card.income { background: linear-gradient(120deg, #e6f6ed, #f3fbf5); border-left: 4px solid #38a879; }
 .summary-card.expense { background: linear-gradient(120deg, #fff0e9, #fff8f4); border-left: 4px solid #ef805f; }
 .summary-card.balance { background: linear-gradient(120deg, #e8f2f5, #f5f9fa); border-left: 4px solid #287c91; }
@@ -681,6 +706,7 @@ dialog { border-radius: 1.15rem; box-shadow: 0 1.5rem 5rem rgb(10 35 51 / 30%); 
 .contribution-table thead th { color: #31574b; }
 .contribution-table tbody th { color: var(--navy); font-size: .9rem; letter-spacing: 0; text-transform: none; white-space: nowrap; }
 .contribution-table tbody td { font-size: .82rem; }
+.contribution-assign-button { margin-top: .35rem; white-space: nowrap; }
 .contribution-table .contribution-paid { background: #f1f9f4; }
 .contribution-paid, .contribution-open, .contribution-overdue, .contribution-not-due, .contribution-inactive { min-width: 8.7rem; }
 .contribution-paid { display: grid; gap: .35rem; }
@@ -1154,6 +1180,11 @@ main { max-width: 86rem; }
 
 @media (max-width: 48rem) {
   main { padding: .8rem .65rem 2rem; }
+  .overview-period-controls { align-items: stretch; }
+  .overview-period-controls > span { flex-basis: 100%; }
+  .overview-period-controls .button { flex: 1 1 auto; }
+  .recurring-overview, .month-close-overview { align-items: stretch; flex-direction: column; }
+  .recurring-overview .button, .month-close-overview .button { align-self: flex-start; }
   .finance-section { border-radius: .9rem; padding: 1rem; }
   .finance-section > .section-heading { align-items: flex-start; }
   .finance-section-nav { gap: .15rem; margin-bottom: .85rem; }

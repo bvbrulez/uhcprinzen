@@ -5,8 +5,9 @@ import {
   getQuarterlyContributionAmount as getEffectiveQuarterlyContributionAmount,
   quarterContributionDueDate,
   quarterDate,
+  resolveDatePreset,
   resolveDateRange,
-} from "./finance-rules.mjs";
+} from "./finance-rules.mjs?v=20261013-overview-periods";
 import {
   compareContributionUrgency,
   matchesContributionMemberFilter,
@@ -14,14 +15,20 @@ import {
 import { createContributionService } from "./contribution-service.mjs";
 import { createAuthService } from "./auth-service.mjs";
 import { createRecurringService } from "./recurring-service.mjs";
-import { createTransactionService } from "./transaction-service.mjs?v=20261011-ui-improvements";
+import { summarizeRecurringSchedules } from "./recurring-view-rules.mjs";
+import { createTransactionService } from "./transaction-service.mjs?v=20261014-receipts";
 import { createLatestRequestGate } from "./latest-request.mjs";
-import { createTransactionView } from "./transaction-view.mjs?v=20261011-ui-improvements";
+import { createTransactionView } from "./transaction-view.mjs?v=20261014-receipts";
 import { createCsvImportController } from "./csv-import-controller.mjs";
 import {
   buildCsvText,
   exportColumnOptions,
 } from "./csv-rules.mjs";
+import {
+  buildMonthCloseChecklist,
+  buildMonthCloseReport,
+  monthCloseRange,
+} from "./month-close.mjs";
 
 const config = window.SUPABASE_CONFIG;
 const supabaseClient = config?.url && config?.anonKey ? supabase.createClient(config.url, config.anonKey) : null;
@@ -36,6 +43,12 @@ const passwordResetDialog = document.querySelector("#password-reset-dialog");
 const categoryDialog = document.querySelector("#category-dialog");
 const recurringDialog = document.querySelector("#recurring-dialog");
 const auditDialog = document.querySelector("#audit-dialog");
+const monthCloseDialog = document.querySelector("#month-close-dialog");
+const monthCloseMonth = document.querySelector("#month-close-month");
+const monthCloseStatus = document.querySelector("#month-close-status");
+const monthCloseSummaryElement = document.querySelector("#month-close-summary");
+const monthCloseChecklistElement = document.querySelector("#month-close-checklist");
+const downloadMonthCloseReport = document.querySelector("#download-month-close-report");
 const authState = document.querySelector("#auth-state");
 const financeContent = document.querySelector("#finance-content");
 const financeHint = document.querySelector("#finance-login-hint");
@@ -88,6 +101,7 @@ const recurringNextDate = document.querySelector("#recurring-next-date");
 const recurringInterval = document.querySelector("#recurring-interval");
 const recurringEndDate = document.querySelector("#recurring-end-date");
 const recurringCancelEdit = document.querySelector("#recurring-cancel-edit");
+const recurringOverviewStatus = document.querySelector("#recurring-overview-status");
 const auditHistory = document.querySelector("#audit-history");
 const auditStatus = document.querySelector("#audit-status");
 const contributionYear = document.querySelector("#contribution-year");
@@ -144,6 +158,10 @@ let contributionIncomeRequestId = 0;
 let contributionIncomeLoading = false;
 let contributionIncomeHasMore = false;
 let contributionIncomeSearchTimer = null;
+let monthCloseSummary = null;
+let monthCloseChecks = [];
+let monthCloseReviewed = [];
+let monthCloseRequestId = 0;
 
 const money = value => `${(Number(value) || 0).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const formatDate = value => new Date(`${value}T12:00:00`).toLocaleDateString("de-DE");
@@ -162,6 +180,7 @@ const csvImportController = createCsvImportController({
   refreshTransactions,
   refreshContributions,
 });
+yearFilter.replaceChildren(new Option(String(currentYear), String(currentYear), true, true));
 dateFromFilter.min = financeStartDate;
 dateToFilter.min = financeStartDate;
 
@@ -209,7 +228,25 @@ function dateRangeLabel() {
   const range = getEffectiveDateRange();
   return dateFromFilter.value || dateToFilter.value
     ? `${formatDate(range.start)} – ${formatDate(range.end)}`
-    : yearFilter.value;
+    : `Jahr ${yearFilter.value}`;
+}
+
+function updateOverviewPeriodControls() {
+  const today = todayDate();
+  const month = resolveDatePreset("month", today);
+  const year = resolveDatePreset("year", today);
+  const hasExplicitRange = Boolean(dateFromFilter.value || dateToFilter.value);
+  const isMonth = dateFromFilter.value === month.start && dateToFilter.value === month.end;
+  const isYear = dateFromFilter.value === year.start && dateToFilter.value === year.end;
+  document.querySelectorAll("[data-overview-period]").forEach(button => {
+    const preset = button.dataset.overviewPeriod;
+    const selected = preset === "month"
+      ? isMonth
+      : preset === "year"
+        ? isYear || (!hasExplicitRange && yearFilter.value === today.slice(0, 4))
+        : hasExplicitRange && !isMonth && !isYear;
+    button.setAttribute("aria-pressed", String(selected));
+  });
 }
 
 function setAuthenticated(nextSession) {
@@ -236,6 +273,7 @@ function setAuthenticated(nextSession) {
   if (!authenticated) {
     transactionAnalytics = null;
     transactions = [];
+    recurringOverviewStatus.textContent = "Nach der Anmeldung werden Fälligkeiten angezeigt.";
     financeContent.setAttribute("aria-busy", "false");
     writeSetupStatus.textContent = "Schreibrechte: werden bei der ersten Änderung geprüft.";
     writeSetupStatus.className = "";
@@ -260,6 +298,7 @@ function setAuthenticated(nextSession) {
   if (authenticated) {
     refreshTransactions();
     refreshContributions();
+    if (administrator) refreshRecurringOverview();
   } else {
     contributionList.replaceChildren();
     contributionSummary.textContent = "";
@@ -273,6 +312,7 @@ function isAdministrator() {
 }
 
 function updateActiveFilters() {
+  updateOverviewPeriodControls();
   const filters = [
     ["Zeitraum", dateRangeLabel(), dateFromFilter.value || dateToFilter.value ? "period" : "year"],
     ["Konto", accountFilter.value === "BANK" ? "Bankkonto" : accountFilter.value === "PAYPAL" ? "PayPal-Konto" : null, "account"],
@@ -317,6 +357,7 @@ function updateActiveFilters() {
     activeFilters.append(chip);
   });
 }
+updateOverviewPeriodControls();
 
 function currentFilterState() {
   return {
@@ -556,9 +597,15 @@ function renderContributionRateQuarterOptions() {
 }
 
 function renderContributionPaymentControls() {
+  const selectedMember = contributionPaymentMember.value;
+  const selectedQuarter = contributionPaymentQuarter.value;
+  const selectedCount = contributionPaymentCount.value;
   contributionPaymentMember.replaceChildren(...teamMembers
     .filter(member => member.active)
     .map(member => new Option(member.name, String(member.id))));
+  if (teamMembers.some(member => member.active && String(member.id) === selectedMember)) {
+    contributionPaymentMember.value = selectedMember;
+  }
   const usedTransactions = new Set(contributionPayments.map(payment => Number(payment.transaction_id)));
   const availableTransactions = contributionIncomeTransactions.filter(transaction => !usedTransactions.has(Number(transaction.id)));
   const selectedTransaction = contributionPaymentTransaction.value;
@@ -587,11 +634,18 @@ function renderContributionPaymentControls() {
     option.selected = year === new Date().getFullYear() && index === thisQuarter;
     return option;
   }));
-  if (!contributionPaymentQuarter.value) contributionPaymentQuarter.selectedIndex = 0;
+  if ([...contributionPaymentQuarter.options].some(option => option.value === selectedQuarter)) {
+    contributionPaymentQuarter.value = selectedQuarter;
+  } else if (!contributionPaymentQuarter.value) {
+    contributionPaymentQuarter.selectedIndex = 0;
+  }
   contributionPaymentCount.replaceChildren(...Array.from({ length: 12 }, (_, index) => {
     const count = index + 1;
-    return new Option(`${count} Quartal${count === 1 ? "" : "e"}`, String(count), count === 1, count === 1);
+    return new Option(`${count} Quartal${count === 1 ? "" : "e"}`, String(count), false, count === 1);
   }));
+  if ([...contributionPaymentCount.options].some(option => option.value === selectedCount)) {
+    contributionPaymentCount.value = selectedCount;
+  }
 }
 
 async function loadContributionIncomeTransactions(reset = false) {
@@ -735,6 +789,15 @@ function renderTeamContributions() {
             const detail = document.createElement("small");
             detail.textContent = `${money(getQuarterlyContributionAmount(start))} · Frist ${formatDate(dueDate)}`;
             cell.append(badge, detail);
+            if (isAdministrator()) {
+              const assign = document.createElement("button");
+              assign.type = "button";
+              assign.className = "button button-secondary button-edit contribution-assign-button";
+              assign.textContent = "Zuordnen";
+              assign.setAttribute("aria-label", `Zahlung für ${member.name}, Q${index + 1} ${year} zuordnen`);
+              assign.addEventListener("click", () => openContributionAssignment(member, start));
+              cell.append(assign);
+            }
           } else {
             memberOpenCount += 1;
             openCount += 1;
@@ -747,6 +810,15 @@ function renderTeamContributions() {
             const detail = document.createElement("small");
             detail.textContent = `${money(getQuarterlyContributionAmount(start))} · bis ${formatDate(dueDate)}`;
             cell.append(badge, detail);
+            if (isAdministrator()) {
+              const assign = document.createElement("button");
+              assign.type = "button";
+              assign.className = "button button-secondary button-edit contribution-assign-button";
+              assign.textContent = "Zuordnen";
+              assign.setAttribute("aria-label", `Zahlung für ${member.name}, Q${index + 1} ${year} zuordnen`);
+              assign.addEventListener("click", () => openContributionAssignment(member, start));
+              cell.append(assign);
+            }
           }
         }
       }
@@ -866,6 +938,19 @@ function applyContributionMemberFilters() {
       ? `${visibleCount} von ${rows.length} Mitgliedern angezeigt.`
       : "Keine Mitglieder entsprechen der Suche und dem gewählten Status."
     : `${rows.length} Mitglieder.`;
+}
+
+function openContributionAssignment(member, quarterStart) {
+  if (!isAdministrator()) return;
+  contributionYear.value = quarterStart.slice(0, 4);
+  renderTeamContributions();
+  contributionPaymentMember.value = String(member.id);
+  contributionPaymentQuarter.value = quarterStart;
+  contributionPaymentCount.value = "1";
+  document.querySelector(".contribution-admin").open = true;
+  contributionAdminStatus.textContent = `Mitglied ${member.name} und Quartal ${quarterLabel(quarterStart)} sind vorausgewählt.`;
+  document.querySelector(".contribution-admin").scrollIntoView({ block: "center" });
+  contributionPaymentMember.focus({ preventScroll: true });
 }
 
 function applyContributionQuickFilter(status) {
@@ -1127,9 +1212,169 @@ function renderTransactions() {
       delete: deleteTransaction,
       duplicate: transaction => openTransactionEditor(transaction, true),
       audit: openTransactionAudit,
+      viewReceipt: openTransactionReceipt,
+      uploadReceipt: uploadTransactionReceipt,
+      removeReceipt: removeTransactionReceipt,
       resetFilters: resetTransactionFilterValues,
     },
   });
+}
+
+async function openTransactionReceipt(transaction) {
+  if (!session || !transaction.receipt_path) return;
+  const receiptWindow = window.open("about:blank", "_blank");
+  if (!receiptWindow) {
+    setFinanceStatus("Der Browser hat das Belegfenster blockiert. Erlaube Pop-ups und versuche es erneut.", "status-error");
+    return;
+  }
+  receiptWindow.opener = null;
+  try {
+    const signedUrl = await transactionService.createReceiptUrl(transaction.receipt_path);
+    receiptWindow.location.href = signedUrl;
+  } catch (error) {
+    receiptWindow.close();
+    setFinanceStatus(`Beleg konnte nicht geöffnet werden: ${error.message}`, "status-error");
+  }
+}
+
+async function uploadTransactionReceipt(transaction, file) {
+  if (!isAdministrator() || transaction.deleted_at) return;
+  let statusMessage;
+  let statusType = "status-success";
+  try {
+    await transactionService.uploadReceipt(transaction.id, file, transaction.receipt_path);
+    statusMessage = `Beleg für „${transaction.description}“ gespeichert.`;
+  } catch (error) {
+    statusMessage = `Beleg konnte nicht gespeichert werden: ${error.message}`;
+    statusType = "status-error";
+  }
+  await refreshTransactions();
+  setFinanceStatus(statusMessage, statusType);
+}
+
+async function removeTransactionReceipt(transaction) {
+  if (!isAdministrator() || !transaction.receipt_path) return;
+  if (!window.confirm(`Beleg „${transaction.receipt_name || transaction.description}“ endgültig entfernen?`)) return;
+  let statusMessage;
+  let statusType = "status-success";
+  try {
+    await transactionService.removeReceipt(transaction);
+    statusMessage = `Beleg für „${transaction.description}“ entfernt.`;
+  } catch (error) {
+    statusMessage = `Beleg konnte nicht vollständig entfernt werden: ${error.message}`;
+    statusType = "status-error";
+  }
+  await refreshTransactions();
+  setFinanceStatus(statusMessage, statusType);
+}
+
+function renderMonthCloseSummary(summary, range) {
+  monthCloseSummaryElement.replaceChildren();
+  const rows = [
+    ["Zeitraum", `${formatDate(range.start)} bis ${formatDate(range.end)}${range.isProvisional ? " · vorläufig" : ""}`],
+    ["Einnahmen", money(summary.totals.income)],
+    ["Ausgaben", money(summary.totals.expenses)],
+    ["Offene Abgleiche", `${summary.openReconciliations} · ${money(summary.openReconciliationAmount)}`],
+  ];
+  rows.forEach(([label, value]) => {
+    const item = document.createElement("p");
+    const heading = document.createElement("strong");
+    heading.textContent = `${label}: `;
+    item.append(heading, document.createTextNode(value));
+    monthCloseSummaryElement.append(item);
+  });
+  monthCloseSummaryElement.hidden = false;
+}
+
+function updateMonthCloseDownloadState() {
+  downloadMonthCloseReport.disabled = !monthCloseSummary
+    || !monthCloseChecks.length
+    || monthCloseReviewed.some(reviewed => !reviewed);
+}
+
+async function refreshMonthClose() {
+  if (!isAdministrator()) return;
+  const requestId = ++monthCloseRequestId;
+  downloadMonthCloseReport.disabled = true;
+  monthCloseSummary = null;
+  monthCloseChecks = [];
+  monthCloseReviewed = [];
+  monthCloseChecklistElement.replaceChildren();
+  monthCloseSummaryElement.hidden = true;
+  try {
+    const today = todayDate();
+    const range = monthCloseRange(monthCloseMonth.value, today);
+    monthCloseStatus.textContent = "Monatsdaten werden geladen …";
+    const [analytics, overview, recurringSchedules] = await Promise.all([
+      transactionService.loadMonthCloseAnalytics(monthCloseMonth.value, range.end),
+      contributionService.loadOverview(),
+      recurringService.load(),
+    ]);
+    monthCloseSummary = buildMonthCloseChecklist({
+      month: monthCloseMonth.value,
+      endDate: range.end,
+      analytics,
+      members: overview.members,
+      payments: overview.payments,
+      quarters: overview.quarters,
+      rates: overview.rates,
+      quarterlyAmount: Number(overview.settings?.quarterly_amount ?? quarterlyContributionAmount),
+      recurringSchedules,
+      today,
+      isProvisional: range.isProvisional,
+    });
+    if (requestId !== monthCloseRequestId) return;
+    monthCloseChecks = [
+      ["Monatsbuchungen und Summen prüfen", `${money(monthCloseSummary.totals.income)} Einnahmen · ${money(monthCloseSummary.totals.expenses)} Ausgaben`],
+      ["Offene Abgleiche prüfen", `${monthCloseSummary.openReconciliations} offene Buchungen · ${money(monthCloseSummary.openReconciliationAmount)}`],
+      ["Quartalsbeiträge prüfen", monthCloseSummary.contribution.quarterStart
+        ? monthCloseSummary.contribution.isDue
+          ? `${monthCloseSummary.contribution.unpaidCount} offen · ${money(monthCloseSummary.contribution.unpaidAmount)}`
+          : `${monthCloseSummary.contribution.activeMemberCount} Beiträge noch nicht fällig · fällig am ${formatDate(monthCloseSummary.contribution.dueDate)}`
+        : "In diesem Monat beginnt kein Beitragsquartal."],
+      ["Wiederholungsbuchungen prüfen", `${monthCloseSummary.recurringDueCount} aktuell fällig (Stand heute).`],
+    ];
+    monthCloseReviewed = monthCloseChecks.map(() => false);
+    monthCloseChecks.forEach(([label, detail], index) => {
+      const item = document.createElement("li");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.addEventListener("change", () => {
+        monthCloseReviewed[index] = input.checked;
+        updateMonthCloseDownloadState();
+      });
+      const text = document.createElement("span");
+      const title = document.createElement("strong");
+      title.textContent = label;
+      const description = document.createElement("small");
+      description.textContent = detail;
+      text.append(title, description);
+      item.append(input, text);
+      monthCloseChecklistElement.append(item);
+    });
+    renderMonthCloseSummary(monthCloseSummary, range);
+    monthCloseStatus.textContent = range.isProvisional
+      ? "Der laufende Monat ist vorläufig und umfasst Buchungen bis heute."
+      : "Alle Daten für den gewählten Abschlussmonat sind geladen. Wiederholungen zeigen den heutigen Stand.";
+  } catch (error) {
+    if (requestId !== monthCloseRequestId) return;
+    monthCloseStatus.textContent = `Monatsabschluss konnte nicht vorbereitet werden: ${error.message}`;
+  }
+  if (requestId !== monthCloseRequestId) return;
+  updateMonthCloseDownloadState();
+}
+
+function archiveMonthCloseReport() {
+  if (!isAdministrator() || !monthCloseSummary || monthCloseReviewed.some(reviewed => !reviewed)) return;
+  const html = buildMonthCloseReport(monthCloseSummary, monthCloseReviewed);
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `uhc-prinzen-monatsabschluss-${monthCloseSummary.month}.html`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  monthCloseStatus.textContent = "Monatsbericht heruntergeladen. Lege die Datei am gewünschten Archivort ab.";
 }
 
 function hasNarrowedTransactionFilters() {
@@ -1200,6 +1445,7 @@ async function reconcileSelectedTransactions() {
 
 async function loadRecurringTransactions() {
   const schedules = await recurringService.load();
+  renderRecurringOverview(schedules);
   recurringList.replaceChildren(...schedules.map(schedule => {
     const item = document.createElement("li");
     const description = document.createElement("span");
@@ -1224,6 +1470,42 @@ async function loadRecurringTransactions() {
   }));
   const categories = await loadTransactionCategories();
   recurringCategory.replaceChildren(...categories.map(name => new Option(name, name)));
+}
+
+function renderRecurringOverview(schedules) {
+  const { dueCount, nextDate } = summarizeRecurringSchedules(schedules, todayDate());
+  if (!nextDate) {
+    recurringOverviewStatus.textContent = "Keine aktiven Wiederholungen vorhanden.";
+  } else if (dueCount) {
+    recurringOverviewStatus.textContent = `${dueCount} Wiederholung${dueCount === 1 ? "" : "en"} fällig · nächste Fälligkeit ${formatDate(nextDate)}.`;
+  } else {
+    recurringOverviewStatus.textContent = `Keine fällig · nächste Fälligkeit ${formatDate(nextDate)}.`;
+  }
+}
+
+async function refreshRecurringOverview() {
+  try {
+    const schedules = await recurringService.load();
+    renderRecurringOverview(schedules);
+  } catch (error) {
+    recurringOverviewStatus.textContent = `Fälligkeiten konnten nicht geladen werden: ${error.message}`;
+  }
+}
+
+async function openRecurringDialog() {
+  if (!isAdministrator()) return;
+  recurringStatus.textContent = "";
+  recurringForm.reset();
+  recurringEditId = null;
+  recurringNextDate.value = todayDate();
+  document.querySelector("#recurring-form-heading").textContent = "Wiederholung hinzufügen";
+  recurringCancelEdit.hidden = true;
+  try {
+    await loadRecurringTransactions();
+  } catch (error) {
+    recurringStatus.textContent = `Wiederholungen konnten nicht geladen werden: ${error.message}`;
+  }
+  recurringDialog.showModal();
 }
 
 function editRecurringSchedule(schedule) {
@@ -1537,21 +1819,21 @@ document.querySelectorAll("[data-finance-view]").forEach(button => {
 });
 document.querySelector("#import-transactions").addEventListener("click", csvImportController.open);
 document.querySelector("#download-csv-example").addEventListener("click", csvImportController.downloadExample);
-document.querySelector("#manage-recurring").addEventListener("click", async () => {
+document.querySelector("#manage-recurring").addEventListener("click", openRecurringDialog);
+document.querySelector("#open-recurring-overview").addEventListener("click", openRecurringDialog);
+document.querySelector("#open-month-close").addEventListener("click", async () => {
   if (!isAdministrator()) return;
-  recurringStatus.textContent = "";
-  recurringForm.reset();
-  recurringEditId = null;
-  recurringNextDate.value = todayDate();
-  document.querySelector("#recurring-form-heading").textContent = "Wiederholung hinzufügen";
-  recurringCancelEdit.hidden = true;
-  try {
-    await loadRecurringTransactions();
-  } catch (error) {
-    recurringStatus.textContent = `Wiederholungen konnten nicht geladen werden: ${error.message}`;
-  }
-  recurringDialog.showModal();
+  const currentMonth = todayDate().slice(0, 7);
+  monthCloseMonth.min = "2026-10";
+  monthCloseMonth.max = currentMonth;
+  monthCloseMonth.value = currentMonth < monthCloseMonth.min ? monthCloseMonth.min : currentMonth;
+  monthCloseStatus.textContent = "";
+  monthCloseDialog.showModal();
+  await refreshMonthClose();
 });
+document.querySelector("#refresh-month-close").addEventListener("click", refreshMonthClose);
+monthCloseMonth.addEventListener("change", refreshMonthClose);
+downloadMonthCloseReport.addEventListener("click", archiveMonthCloseReport);
 recurringForm.addEventListener("submit", async event => {
   event.preventDefault();
   if (!isAdministrator()) return;
@@ -1774,6 +2056,24 @@ yearFilter.addEventListener("change", () => {
   dateToFilter.value = "";
   refreshDateRange();
 });
+function applyDatePreset(preset) {
+  const today = todayDate();
+  if (preset === "month" || preset === "year") {
+    const range = resolveDatePreset(preset, today);
+    yearFilter.value = today.slice(0, 4);
+    dateFromFilter.value = range.start;
+    dateToFilter.value = range.end;
+  } else if (preset === "30") {
+    const start = new Date();
+    start.setDate(start.getDate() - 29);
+    const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+    dateFromFilter.value = startDate < financeStartDate ? financeStartDate : startDate;
+    dateToFilter.value = today;
+  }
+  updateOverviewPeriodControls();
+  refreshDateRange();
+}
+
 function refreshDateRange() {
   const range = getEffectiveDateRange();
   const isBeforeStart = (dateFromFilter.value && dateFromFilter.value < financeStartDate)
@@ -1796,21 +2096,23 @@ function refreshDateRange() {
       : "Das Startdatum darf nicht nach dem Enddatum liegen.", "status-error");
     return;
   }
+  updateActiveFilters();
   refreshTransactions();
 }
 dateFromFilter.addEventListener("change", refreshDateRange);
 dateToFilter.addEventListener("change", refreshDateRange);
+document.querySelectorAll("[data-overview-period]").forEach(button => button.addEventListener("click", () => {
+  const preset = button.dataset.overviewPeriod;
+  if (preset === "custom") {
+    document.querySelector("#transactions-panel").open = true;
+    setFinanceView("bookings");
+    dateFromFilter.focus({ preventScroll: true });
+    return;
+  }
+  applyDatePreset(preset);
+}));
 document.querySelectorAll("[data-date-preset]").forEach(button => button.addEventListener("click", () => {
-  const today = new Date();
-  const end = todayDate();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  if (button.dataset.datePreset === "30") start.setDate(start.getDate() - 29);
-  if (button.dataset.datePreset === "month") start.setDate(1);
-  if (button.dataset.datePreset === "year") start.setMonth(0, 1);
-  const toIso = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  dateFromFilter.value = toIso(start);
-  dateToFilter.value = end;
-  refreshDateRange();
+  applyDatePreset(button.dataset.datePreset);
 }));
 accountFilter.addEventListener("change", () => { currentPage = 0; refreshTransactions(); });
 summaryFilter.addEventListener("change", refreshTransactions);

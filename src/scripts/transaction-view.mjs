@@ -269,6 +269,13 @@ export function createTransactionView({ money, formatDate }) {
         mobileDetails.append(detail);
       });
       row.children[3].append(detailToggle, mobileDetails);
+      if (item.receipt_path) {
+        row.children[3].append(createButton(
+          `Beleg ansehen${item.receipt_name ? `: ${item.receipt_name}` : ""}`,
+          () => callbacks.viewReceipt(item),
+          "button button-secondary button-edit transaction-receipt-button",
+        ));
+      }
       row.children[9].hidden = !isAdministrator;
       row.children[9].classList.add("transaction-actions");
       if (!isAdministrator) return row;
@@ -284,6 +291,26 @@ export function createTransactionView({ money, formatDate }) {
       actionList.id = `transaction-actions-${item.id}`;
       actionList.className = "transaction-action-list";
       row.children[9].append(actionToggle, actionList);
+      if (!item.deleted_at) {
+        const receiptButton = createButton(
+          item.receipt_path ? "Beleg ersetzen" : "Beleg hinzufügen",
+          () => receiptInput.click(),
+        );
+        const receiptInput = document.createElement("input");
+        receiptInput.type = "file";
+        receiptInput.accept = "application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp";
+        receiptInput.hidden = true;
+        receiptInput.setAttribute("aria-label", `Beleg für ${item.description} auswählen`);
+        receiptInput.addEventListener("change", () => {
+          const [file] = receiptInput.files || [];
+          if (file) callbacks.uploadReceipt(item, file);
+          receiptInput.value = "";
+        });
+        actionList.append(receiptButton, receiptInput);
+      }
+      if (item.receipt_path) {
+        actionList.append(createButton("Beleg entfernen", () => callbacks.removeReceipt(item), "button button-danger button-edit"));
+      }
 
       if (item.deleted_at) {
         row.classList.add("deleted-transaction");

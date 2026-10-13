@@ -54,6 +54,32 @@ test("finance navigation switches sections and opens the contribution table dire
   await expect(page.locator("#reconciliation-filter")).toHaveValue("OPEN");
 });
 
+test("overview period shortcuts set month and year or open custom date filters", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#finance-content").evaluate(element => { element.hidden = false; });
+
+  const today = await page.evaluate(() => {
+    const date = new Date();
+    return {
+      today: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+      year: String(date.getFullYear()),
+    };
+  });
+  await page.locator('[data-overview-period="month"]').click();
+  await expect(page.locator("#date-from-filter")).toHaveValue(`${today.year}-${today.today.slice(5, 7)}-01`);
+  await expect(page.locator("#date-to-filter")).toHaveValue(today.today);
+  await expect(page.locator('[data-overview-period="month"]')).toHaveAttribute("aria-pressed", "true");
+
+  await page.locator('[data-overview-period="year"]').click();
+  await expect(page.locator("#year-filter")).toHaveValue(today.year);
+  await expect(page.locator("#date-to-filter")).toHaveValue(today.today);
+  await expect(page.locator('[data-overview-period="year"]')).toHaveAttribute("aria-pressed", "true");
+
+  await page.locator('[data-overview-period="custom"]').click();
+  await expect(page.locator("#finance-view-bookings")).toBeVisible();
+  await expect(page.locator("#date-from-filter")).toBeFocused();
+});
+
 async function signIn(page, email, password) {
   test.skip(
     !process.env.E2E_SUPABASE_URL || !process.env.E2E_SUPABASE_ANON_KEY,
@@ -86,6 +112,12 @@ test("administrator sees contribution and transaction management controls", asyn
 
   await signIn(page, email, password);
   await expect(page.locator("#auth-state")).toContainText("Administrator");
+  await expect(page.locator("#recurring-overview")).toBeVisible();
+  await expect.poll(() => page.locator("#recurring-overview-status").textContent())
+    .not.toContain("Fälligkeiten werden geladen");
+  await page.locator("#open-recurring-overview").click();
+  await expect(page.locator("#recurring-dialog")).toBeVisible();
+  await page.locator("#recurring-dialog [data-close-dialog]").click();
   await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
   await expect(page.locator("#new-transaction")).toBeVisible();
   await expect(page.locator("#manage-categories")).toBeVisible();
@@ -108,6 +140,14 @@ test("administrator sees contribution and transaction management controls", asyn
   await expect(page.locator("#contribution-member-status")).toHaveValue("overdue");
   await expect(overdueMetric).toHaveAttribute("aria-pressed", "true");
   await page.locator("#reset-contribution-filters").click();
+  const assignmentButton = page.locator(".contribution-assign-button").first();
+  if (await assignmentButton.count()) {
+    await assignmentButton.click();
+    await expect(page.locator(".contribution-admin")).toHaveAttribute("open", "");
+    await expect(page.locator("#contribution-payment-member")).not.toHaveValue("");
+    await expect(page.locator("#contribution-payment-quarter")).not.toHaveValue("");
+    await expect(page.locator("#contribution-payment-count")).toHaveValue("1");
+  }
 
   await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
   await expect.poll(async () => {
@@ -127,4 +167,75 @@ test("administrator sees contribution and transaction management controls", asyn
     await actionsToggle.click();
     await expect(firstTransaction.locator(".transaction-action-list")).toBeVisible();
   }
+});
+
+test("administrator can review and archive the monthly close report", async ({ page }) => {
+  const { E2E_ADMIN_EMAIL: email, E2E_ADMIN_PASSWORD: password } = process.env;
+  test.skip(!email || !password, "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD for local test users.");
+
+  await signIn(page, email, password);
+  await page.locator("#open-month-close").click();
+  await expect(page.locator("#month-close-dialog")).toBeVisible();
+  await expect(page.locator("#month-close-checklist li")).toHaveCount(4);
+  const archiveButton = page.locator("#download-month-close-report");
+  await expect(archiveButton).toBeDisabled();
+  for (const checkbox of await page.locator("#month-close-checklist input[type=checkbox]").all()) {
+    await checkbox.check({ force: true });
+  }
+  await expect(archiveButton).toBeEnabled();
+  const downloadPromise = page.waitForEvent("download");
+  await archiveButton.click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^uhc-prinzen-monatsabschluss-\d{4}-\d{2}\.html$/);
+});
+
+test("administrator can attach a private receipt for members to view", async ({ page }) => {
+  const { E2E_ADMIN_EMAIL: email, E2E_ADMIN_PASSWORD: password } = process.env;
+  test.skip(!email || !password, "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD for local test users.");
+
+  const description = `E2E Beleg ${Date.now()}`;
+  await signIn(page, email, password);
+  await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
+  await page.locator("#new-transaction").click();
+  await page.locator("#transaction-description").fill(description);
+  await page.locator("#transaction-amount").fill("12.34");
+  await page.locator("#transaction-date").fill(await page.evaluate(() => new Date().toISOString().slice(0, 10)));
+  await page.locator("#transaction-category").selectOption("Sonstiges");
+  await page.locator("#transaction-submit").click();
+  await expect(page.locator("#finance-status")).toContainText("Buchung erfolgreich gespeichert");
+
+  const row = page.locator("#transaction-list tr").filter({ hasText: description });
+  await expect(row).toBeVisible();
+  await row.locator('input[type="file"]').setInputFiles({
+    name: "e2e-receipt.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\nE2E receipt\n%%EOF"),
+  });
+  await expect(row.getByRole("button", { name: /Beleg ansehen: e2e-receipt\.pdf/ })).toBeVisible();
+
+  await page.locator("#logout-button").click();
+  await expect(page.locator("#login-toggle")).toBeVisible();
+  await signIn(page, process.env.E2E_MEMBER_EMAIL, process.env.E2E_MEMBER_PASSWORD);
+  await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
+  const memberRow = page.locator("#transaction-list tr").filter({ hasText: description });
+  await expect(memberRow.getByRole("button", { name: /Beleg ansehen: e2e-receipt\.pdf/ })).toBeVisible();
+  const popupPromise = page.waitForEvent("popup");
+  await memberRow.getByRole("button", { name: /Beleg ansehen: e2e-receipt\.pdf/ }).click();
+  const receiptPage = await popupPromise;
+  await expect.poll(() => receiptPage.url()).toContain("/storage/v1/object/sign/transaction-receipts/");
+  await receiptPage.close();
+
+  await page.locator("#logout-button").click();
+  await expect(page.locator("#login-toggle")).toBeVisible();
+  await signIn(page, email, password);
+  await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
+  const cleanupRow = page.locator("#transaction-list tr").filter({ hasText: description });
+  await cleanupRow.getByRole("button", { name: "Aktionen" }).click();
+  page.once("dialog", dialog => dialog.accept());
+  await cleanupRow.getByRole("button", { name: "Beleg entfernen" }).click();
+  await expect(cleanupRow.getByRole("button", { name: /Beleg ansehen/ })).toHaveCount(0);
+  await cleanupRow.getByRole("button", { name: "Aktionen" }).click();
+  page.once("dialog", dialog => dialog.accept());
+  await cleanupRow.getByRole("button", { name: "Löschen" }).click();
+  await expect(cleanupRow).toHaveCount(0);
 });

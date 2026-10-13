@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap;
-select plan(13);
+select plan(14);
 
 insert into public.transaction_categories (name)
 values ('Test contribution rules')
@@ -131,6 +131,21 @@ select throws_ok(
   '23514',
   null,
   'Active recurring schedules before the finance cutoff are rejected'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'Members can read active transaction receipts'
+      and cmd = 'SELECT'
+      and qual like '%transaction-receipts%'
+      and qual like '%receipt_path%'
+      and qual like '%deleted_at%'
+  ),
+  'Members can read only receipts linked to active transactions'
 );
 
 select * from finish();

@@ -44,6 +44,12 @@
             <div class="summary-card expense"><span id="total-expenses-label">Gesamtausgaben · aktuelles Jahr · beide Konten</span><strong id="total-expenses">0,00 €</strong><small id="expenses-year-comparison" class="year-comparison">Vorjahresvergleich wird geladen …</small></div>
           </div>
           <p id="summary-period" class="summary-period" aria-live="polite"></p>
+          <div class="overview-period-controls" role="group" aria-label="Zeitraum für Übersicht auswählen">
+            <span>Zeitraum:</span>
+            <button class="button button-secondary button-edit" type="button" data-overview-period="month" aria-pressed="false">Dieser Monat</button>
+            <button class="button button-secondary button-edit" type="button" data-overview-period="year" aria-pressed="false">Dieses Jahr</button>
+            <button class="button button-secondary button-edit" type="button" data-overview-period="custom" aria-pressed="false">Benutzerdefiniert …</button>
+          </div>
           <div class="account-summary-grid">
             <div class="account-summary bank-account"><span class="account-icon" aria-hidden="true">▤</span><div><span id="bank-balance-label">Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div></div>
             <div class="account-summary paypal-account"><span class="account-icon" aria-hidden="true">↗</span><div><span id="paypal-balance-label">PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div></div>
@@ -51,6 +57,20 @@
           <aside id="contribution-alert" class="contribution-alert" aria-live="polite">
             <p id="contribution-alert-message">Beitragsstatus wird geladen …</p>
             <button class="button button-secondary button-edit" type="button" data-finance-view="contributions">Beiträge anzeigen</button>
+          </aside>
+          <aside id="recurring-overview" class="recurring-overview" data-admin-only hidden aria-labelledby="recurring-overview-heading">
+            <div>
+              <h3 id="recurring-overview-heading">Wiederholungsbuchungen</h3>
+              <p id="recurring-overview-status" role="status" aria-live="polite">Fälligkeiten werden geladen …</p>
+            </div>
+            <button id="open-recurring-overview" class="button button-secondary button-edit" type="button">Fälligkeiten prüfen</button>
+          </aside>
+          <aside class="month-close-overview" data-admin-only hidden aria-labelledby="month-close-heading">
+            <div>
+              <h3 id="month-close-heading">Monatsabschluss</h3>
+              <p>Abgleiche und Quartalsbeiträge prüfen, anschließend einen Monatsbericht archivieren.</p>
+            </div>
+            <button id="open-month-close" class="button button-secondary button-edit" type="button">Abschluss vorbereiten</button>
           </aside>
           <section class="recent-transactions" aria-labelledby="recent-transactions-heading">
             <div class="recent-transactions-heading">
@@ -71,7 +91,7 @@
               <article class="reconciliation-account"><h4>PayPal-Konto</h4><p>Offen <button id="paypal-open-summary" class="reconciliation-summary-link" type="button" aria-label="Offene PayPal-Buchungen anzeigen">–</button></p><p>Abgeglichen <strong id="paypal-reconciled-summary">–</strong></p></article>
             </div>
           </section>
-          <p class="finance-explanation">Die Verwaltung beginnt am 01.10.2026. Bank- und PayPal-Salden enthalten den jeweiligen Startsaldo sowie alle Buchungen ab diesem Datum bis zum Ende des ausgewählten Zeitraums. Einnahmen, Ausgaben und Auswertungen beziehen sich auf den ausgewählten Zeitraum; der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
+          <p class="finance-explanation">Die Verwaltung beginnt am 01.10.2026. Bank- und PayPal-Salden enthalten den jeweiligen Startsaldo sowie alle Buchungen ab diesem Datum bis zum Ende des ausgewählten Zeitraums. Die Jahressummen für Einnahmen und Ausgaben zeigen das laufende Kalenderjahr bis heute; Monats- und Kategorieauswertungen beziehen sich auf den ausgewählten Zeitraum. Der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
           </section>
           <section id="finance-view-contributions" class="finance-view" aria-label="Quartalsbeiträge" tabindex="-1" hidden>
           <section class="contribution-section" aria-labelledby="contribution-heading">
@@ -350,6 +370,19 @@
         <p id="audit-status" class="status" role="status" aria-live="polite"></p>
       </div>
     </dialog>
+    <dialog id="month-close-dialog">
+      <div class="dialog-form">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
+        <p class="eyebrow">Nur Administratoren</p><h2>Monatsabschluss vorbereiten</h2>
+        <p class="muted">Prüfe die Monatswerte und bestätige jeden Prüfschritt. Der Bericht wird als HTML-Datei heruntergeladen und nicht automatisch in der Datenbank gespeichert.</p>
+        <label>Abschlussmonat <input id="month-close-month" type="month" min="2026-10" required /></label>
+        <button id="refresh-month-close" class="button button-secondary" type="button">Monatswerte laden</button>
+        <p id="month-close-status" class="status" role="status" aria-live="polite"></p>
+        <section id="month-close-summary" class="month-close-summary" aria-live="polite" hidden></section>
+        <ol id="month-close-checklist" class="month-close-checklist"></ol>
+        <button id="download-month-close-report" class="button" type="button" disabled>Geprüften Monatsbericht archivieren</button>
+      </div>
+    </dialog>
     <dialog id="csv-export-dialog">
       <form id="csv-export-form" class="dialog-form">
         <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
@@ -401,6 +434,6 @@
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <script type="module" src="scripts/app.js"></script>
+    <script type="module" src="scripts/app.js?v=20261014-month-close-receipts"></script>
   </body>
 </html>

@@ -2,6 +2,52 @@
 
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
+## 2026-10-13
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-13:
+- `M – .github/copilot-instructions.md`
+- `M – .github/workflows/pages.yml`
+- `M – .github/workflows/tests.yml`
+- `M – README.md`
+- `M – package.json`
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/scripts/finance-rules.mjs`
+- `A – src/scripts/month-close.mjs`
+- `A – src/scripts/recurring-view-rules.mjs`
+- `M – src/scripts/transaction-service.mjs`
+- `M – src/scripts/transaction-view.mjs`
+- `M – src/styles/components.css`
+- `A – supabase/config.toml`
+- `A – supabase/migrations/20261014090000_transaction_receipt_member_read.sql`
+- `M – supabase/schema.sql`
+- `M – supabase/tests/contribution_rules.test.sql`
+- `A – tests/db/install-local-schema.mjs`
+- `M – tests/e2e/access-control.spec.mjs`
+- `A – tests/e2e/create-local-users.mjs`
+- `M – tests/unit/finance-rules.test.mjs`
+- `A – tests/unit/month-close.test.mjs`
+- `A – tests/unit/recurring-view-rules.test.mjs`
+- `M – tests/unit/transaction-service.test.mjs`
+
+
+### Belege, Monatsabschluss und Deployment-Prüfungen ergänzt
+
+- Belegverwaltung für Buchungen mit privatem Supabase-Storage, Upload- und
+  Dateityp-/Größenprüfung sowie kurzlebigen Links für angemeldete Mitglieder
+  ergänzt.
+- Geführten Monatsabschluss mit Prüfschritten für Buchungen, Abgleiche,
+  Quartalsbeiträge und Wiederholungen sowie herunterladbarem HTML-Archivbericht
+  ergänzt.
+- Backup-/Restore-Hinweise und eine versionierte SQL-Migration dokumentiert;
+  lokale Schema-Installationen sind auf Loopback-Datenbanken beschränkt.
+- CI um lokale Supabase-, pgTAP- und authentifizierte Playwright-Läufe erweitert
+  und GitHub-Pages-Deployment von erfolgreichen Prüfungen abhängig gemacht.
+- Beitragszuordnung, Wiederholungsstatus und Zeitraum-Schnellwahl für die
+  Finanzübersicht weiter verbessert.
+- Unit- und Browserprüfungen sowie README und Modulübersicht aktualisiert.
+
 ## 2026-10-11
 ### Änderungen aus diesem Commit
 

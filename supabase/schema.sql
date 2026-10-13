@@ -251,6 +251,20 @@ create policy "Admins manage transaction receipts"
   using (bucket_id = 'transaction-receipts' and public.is_finance_admin())
   with check (bucket_id = 'transaction-receipts' and public.is_finance_admin());
 
+drop policy if exists "Members can read active transaction receipts" on storage.objects;
+create policy "Members can read active transaction receipts"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'transaction-receipts'
+    and exists (
+      select 1
+      from public.transactions
+      where transactions.receipt_path = storage.objects.name
+        and transactions.deleted_at is null
+    )
+  );
+
 drop trigger if exists transactions_audit on public.transactions;
 drop trigger if exists transactions_audit_log on public.transactions;
 create trigger transactions_audit_log

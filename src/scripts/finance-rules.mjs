@@ -10,6 +10,18 @@ export function resolveDateRange(year, startDate, endDate, today, financeStartDa
   };
 }
 
+export function resolveDatePreset(preset, today, financeStartDate = FINANCE_START_DATE) {
+  if (!["month", "year"].includes(preset)) throw new Error(`Unknown date preset: ${preset}`);
+  const currentYear = today.slice(0, 4);
+  const yearStart = `${currentYear}-01-01`;
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const start = preset === "month" ? monthStart : yearStart;
+  return {
+    start: start < financeStartDate ? financeStartDate : start,
+    end: today,
+  };
+}
+
 export function quarterDate(year, quarterIndex) {
   return new Date(Date.UTC(year, quarterIndex * 3, 1)).toISOString().slice(0, 10);
 }

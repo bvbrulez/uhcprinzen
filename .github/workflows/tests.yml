@@ -1,10 +1,8 @@
-name: Test finance rules
+name: Test finance app
 
 on:
-  # Validate every proposed change and keep main green after pushes.
   pull_request:
-  push:
-    branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
@@ -13,13 +11,41 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      # Use the lockfile for a reproducible test environment.
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Run the pure finance-rule suite and catch JavaScript syntax errors.
       - run: npm test
       - run: node --check src/scripts/app.js
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_ADMIN_EMAIL: admin@example.test
+      E2E_ADMIN_PASSWORD: LocalOnlyAdmin123!
+      E2E_MEMBER_EMAIL: member@example.test
+      E2E_MEMBER_PASSWORD: LocalOnlyMember123!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: npm ci
+      - run: supabase start -x studio,inbucket,vector,logflare,edge-runtime,realtime,imgproxy
+      - name: Export local Supabase credentials
+        run: supabase status --output env | sed -E 's/^([A-Z_]+)="(.*)"$/\1=\2/' >> "$GITHUB_ENV"
+      - name: Install the fresh local schema
+        run: TEST_DATABASE_URL="$DB_URL" ALLOW_DATABASE_TESTS=1 npm run test:db:install
+      - name: Run database integration tests
+        run: TEST_DATABASE_URL="$DB_URL" ALLOW_DATABASE_TESTS=1 npm run test:db
+      - name: Create disposable browser-test users
+        run: E2E_SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" node tests/e2e/create-local-users.mjs
+      - run: npx playwright install --with-deps chromium
+      - run: E2E_SUPABASE_URL="$API_URL" E2E_SUPABASE_ANON_KEY="$ANON_KEY" npm run test:e2e

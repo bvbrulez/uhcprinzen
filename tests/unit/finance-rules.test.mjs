@@ -6,8 +6,28 @@ import {
   getQuarterlyContributionAmount,
   quarterContributionDueDate,
   quarterDate,
+  resolveDatePreset,
   resolveDateRange,
 } from "../../src/scripts/finance-rules.mjs";
+
+test("sets month and year presets through today and respects the finance cutoff", () => {
+  assert.deepEqual(resolveDatePreset("month", "2026-10-13"), {
+    start: "2026-10-01",
+    end: "2026-10-13",
+  });
+  assert.deepEqual(resolveDatePreset("year", "2026-10-13"), {
+    start: "2026-10-01",
+    end: "2026-10-13",
+  });
+  assert.deepEqual(resolveDatePreset("year", "2027-06-30"), {
+    start: "2027-01-01",
+    end: "2027-06-30",
+  });
+});
+
+test("rejects unsupported date presets", () => {
+  assert.throws(() => resolveDatePreset("custom", "2027-06-30"), /Unknown date preset/);
+});
 
 test("uses the explicit start date even when it is the finance cutoff", () => {
   assert.deepEqual(
