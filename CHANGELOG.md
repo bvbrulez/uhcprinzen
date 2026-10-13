@@ -3,6 +3,11 @@
 Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 ## 2026-10-13
+
+### Version 1.1.1
+
+- fix(e2e): allow empty member bookings view
+
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-13:
