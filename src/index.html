@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Die Wesselbleker Prinzen – Freizeit-Hockey im Uhlenhorster Hockey Club." />
+    <meta
+      name="description"
+      content="Die Wesselbleker Prinzen im Uhlenhorster Hockey Club."
+    />
     <title>UHC Prinzen</title>
     <link rel="icon" href="assets/uhc-logo.png" type="image/png" />
     <link rel="stylesheet" href="styles/base.css" />
@@ -15,305 +18,1094 @@
         <img src="assets/uhc-logo.png" alt="UHC Prinzen" />
       </a>
       <nav class="site-nav" aria-label="Hauptnavigation">
-        <a class="nav-finance-link" href="#finanzen"><span class="nav-finance-icon" aria-hidden="true">€</span><span>Mannschaftskasse</span><span class="nav-link-arrow" aria-hidden="true">↓</span></a>
+        <a class="nav-finance-link" href="#finanzen"
+          ><span class="nav-finance-icon" aria-hidden="true">€</span
+          ><span>Mannschaftskasse</span
+          ><span class="nav-link-arrow" aria-hidden="true">↓</span></a
+        >
       </nav>
       <div class="auth-actions">
-        <button id="login-toggle" class="button button-small" type="button" hidden>Anmelden</button>
-        <button id="logout-button" class="button button-small" type="button" hidden>Abmelden</button>
+        <button
+          id="login-toggle"
+          class="button button-small"
+          type="button"
+          hidden
+        >
+          Anmelden
+        </button>
+        <button
+          id="logout-button"
+          class="button button-small"
+          type="button"
+          hidden
+        >
+          Abmelden
+        </button>
       </div>
     </header>
 
     <main>
-      <section id="finanzen" class="card finance-section" aria-labelledby="finance-heading">
+      <section
+        id="finanzen"
+        class="card finance-section"
+        aria-labelledby="finance-heading"
+      >
         <div class="section-heading">
-          <div><p class="eyebrow">Mannschaftskasse</p><h2 id="finance-heading">Finanzübersicht</h2></div>
-          <span id="auth-state" class="status" role="status">Nur für angemeldete Mitglieder</span>
+          <div>
+            <p class="eyebrow">Mannschaftskasse</p>
+            <h2 id="finance-heading">Finanzübersicht</h2>
+          </div>
+          <span id="auth-state" class="status" role="status"
+            >Nur für angemeldete Mitglieder</span
+          >
         </div>
         <div id="finance-content" hidden aria-busy="false">
           <nav class="finance-section-nav" aria-label="Finanzbereiche">
-            <button class="finance-section-tab" type="button" data-finance-view="overview" aria-controls="finance-view-overview" aria-pressed="true">Übersicht</button>
-            <button class="finance-section-tab" type="button" data-finance-view="contributions" aria-controls="finance-view-contributions" aria-pressed="false">
-              Beiträge <span id="contribution-nav-count" class="finance-nav-count" hidden></span>
+            <button
+              class="finance-section-tab"
+              type="button"
+              data-finance-view="overview"
+              aria-controls="finance-view-overview"
+              aria-pressed="true"
+            >
+              Übersicht
             </button>
-            <button class="finance-section-tab" type="button" data-finance-view="bookings" aria-controls="finance-view-bookings" aria-pressed="false">Buchungen</button>
+            <button
+              class="finance-section-tab"
+              type="button"
+              data-finance-view="contributions"
+              aria-controls="finance-view-contributions"
+              aria-pressed="false"
+            >
+              Beiträge
+              <span
+                id="contribution-nav-count"
+                class="finance-nav-count"
+                hidden
+              ></span>
+            </button>
+            <button
+              class="finance-section-tab"
+              type="button"
+              data-finance-view="bookings"
+              aria-controls="finance-view-bookings"
+              aria-pressed="false"
+            >
+              Buchungen
+            </button>
           </nav>
-          <section id="finance-view-overview" class="finance-view" aria-label="Finanzübersicht" tabindex="-1">
-          <div class="summary-grid">
-            <div class="summary-card balance"><span>Gesamtsaldo · beide Konten</span><strong id="total-balance">0,00 €</strong></div>
-            <div class="summary-card income"><span id="total-income-label">Gesamteinnahmen · aktuelles Jahr · beide Konten</span><strong id="total-income">0,00 €</strong><small id="income-year-comparison" class="year-comparison">Vorjahresvergleich wird geladen …</small></div>
-            <div class="summary-card expense"><span id="total-expenses-label">Gesamtausgaben · aktuelles Jahr · beide Konten</span><strong id="total-expenses">0,00 €</strong><small id="expenses-year-comparison" class="year-comparison">Vorjahresvergleich wird geladen …</small></div>
-          </div>
-          <p id="summary-period" class="summary-period" aria-live="polite"></p>
-          <div class="overview-period-controls" role="group" aria-label="Zeitraum für Übersicht auswählen">
-            <span>Zeitraum:</span>
-            <button class="button button-secondary button-edit" type="button" data-overview-period="month" aria-pressed="false">Dieser Monat</button>
-            <button class="button button-secondary button-edit" type="button" data-overview-period="year" aria-pressed="false">Dieses Jahr</button>
-            <button class="button button-secondary button-edit" type="button" data-overview-period="custom" aria-pressed="false">Benutzerdefiniert …</button>
-          </div>
-          <div class="account-summary-grid">
-            <div class="account-summary bank-account"><span class="account-icon" aria-hidden="true">▤</span><div><span id="bank-balance-label">Bankkonto · Jahressaldo</span><strong id="bank-balance">0,00 €</strong></div></div>
-            <div class="account-summary paypal-account"><span class="account-icon" aria-hidden="true">↗</span><div><span id="paypal-balance-label">PayPal-Konto · Jahressaldo</span><strong id="paypal-balance">0,00 €</strong></div></div>
-          </div>
-          <aside id="contribution-alert" class="contribution-alert" aria-live="polite">
-            <p id="contribution-alert-message">Beitragsstatus wird geladen …</p>
-            <button class="button button-secondary button-edit" type="button" data-finance-view="contributions">Beiträge anzeigen</button>
-          </aside>
-          <aside id="recurring-overview" class="recurring-overview" data-admin-only hidden aria-labelledby="recurring-overview-heading">
-            <div>
-              <h3 id="recurring-overview-heading">Wiederholungsbuchungen</h3>
-              <p id="recurring-overview-status" role="status" aria-live="polite">Fälligkeiten werden geladen …</p>
+          <section
+            id="finance-view-overview"
+            class="finance-view"
+            aria-label="Finanzübersicht"
+            tabindex="-1"
+          >
+            <div class="summary-grid">
+              <div class="summary-card balance">
+                <span>Gesamtsaldo · beide Konten</span
+                ><strong id="total-balance">0,00 €</strong>
+              </div>
+              <div class="summary-card income">
+                <span id="total-income-label"
+                  >Gesamteinnahmen · aktuelles Jahr · beide Konten</span
+                ><strong id="total-income">0,00 €</strong
+                ><small id="income-year-comparison" class="year-comparison"
+                  >Vorjahresvergleich wird geladen …</small
+                >
+              </div>
+              <div class="summary-card expense">
+                <span id="total-expenses-label"
+                  >Gesamtausgaben · aktuelles Jahr · beide Konten</span
+                ><strong id="total-expenses">0,00 €</strong
+                ><small id="expenses-year-comparison" class="year-comparison"
+                  >Vorjahresvergleich wird geladen …</small
+                >
+              </div>
             </div>
-            <button id="open-recurring-overview" class="button button-secondary button-edit" type="button">Fälligkeiten prüfen</button>
-          </aside>
-          <aside class="month-close-overview" data-admin-only hidden aria-labelledby="month-close-heading">
-            <div>
-              <h3 id="month-close-heading">Monatsabschluss</h3>
-              <p>Abgleiche und Quartalsbeiträge prüfen, anschließend einen Monatsbericht archivieren.</p>
+            <p
+              id="summary-period"
+              class="summary-period"
+              aria-live="polite"
+            ></p>
+            <div
+              class="overview-period-controls"
+              role="group"
+              aria-label="Zeitraum für Übersicht auswählen"
+            >
+              <span>Zeitraum:</span>
+              <button
+                class="button button-secondary button-edit"
+                type="button"
+                data-overview-period="month"
+                aria-pressed="false"
+              >
+                Dieser Monat
+              </button>
+              <button
+                class="button button-secondary button-edit"
+                type="button"
+                data-overview-period="year"
+                aria-pressed="false"
+              >
+                Dieses Jahr
+              </button>
+              <button
+                class="button button-secondary button-edit"
+                type="button"
+                data-overview-period="custom"
+                aria-pressed="false"
+              >
+                Benutzerdefiniert …
+              </button>
             </div>
-            <button id="open-month-close" class="button button-secondary button-edit" type="button">Abschluss vorbereiten</button>
-          </aside>
-          <section class="recent-transactions" aria-labelledby="recent-transactions-heading">
-            <div class="recent-transactions-heading">
-              <div><h3 id="recent-transactions-heading">Letzte Buchungen</h3><p>Die fünf neuesten Buchungen seit Beginn der Verwaltung.</p></div>
-              <button class="button button-secondary button-edit" type="button" data-finance-view="bookings">Alle Buchungen</button>
+            <div class="account-summary-grid">
+              <div class="account-summary bank-account">
+                <span class="account-icon" aria-hidden="true">▤</span>
+                <div>
+                  <span id="bank-balance-label">Bankkonto · Jahressaldo</span
+                  ><strong id="bank-balance">0,00 €</strong>
+                </div>
+              </div>
+              <div class="account-summary paypal-account">
+                <span class="account-icon" aria-hidden="true">↗</span>
+                <div>
+                  <span id="paypal-balance-label"
+                    >PayPal-Konto · Jahressaldo</span
+                  ><strong id="paypal-balance">0,00 €</strong>
+                </div>
+              </div>
             </div>
-            <ul id="recent-transactions-list" class="recent-transactions-list"></ul>
-            <div class="recent-transactions-feedback">
-              <p id="recent-transactions-status" class="status" role="status" aria-live="polite">Nach der Anmeldung werden die letzten Buchungen angezeigt.</p>
-              <button id="retry-recent-transactions" class="button button-secondary button-edit" type="button" hidden>Erneut laden</button>
-            </div>
+            <aside
+              id="contribution-alert"
+              class="contribution-alert"
+              aria-live="polite"
+            >
+              <p id="contribution-alert-message">
+                Beitragsstatus wird geladen …
+              </p>
+              <button
+                class="button button-secondary button-edit"
+                type="button"
+                data-finance-view="contributions"
+              >
+                Beiträge anzeigen
+              </button>
+            </aside>
+            <aside
+              id="recurring-overview"
+              class="recurring-overview"
+              data-admin-only
+              hidden
+              aria-labelledby="recurring-overview-heading"
+            >
+              <div>
+                <h3 id="recurring-overview-heading">Wiederholungsbuchungen</h3>
+                <p
+                  id="recurring-overview-status"
+                  role="status"
+                  aria-live="polite"
+                >
+                  Fälligkeiten werden geladen …
+                </p>
+              </div>
+              <button
+                id="open-recurring-overview"
+                class="button button-secondary button-edit"
+                type="button"
+              >
+                Fälligkeiten prüfen
+              </button>
+            </aside>
+            <aside
+              class="month-close-overview"
+              data-admin-only
+              hidden
+              aria-labelledby="month-close-heading"
+            >
+              <div>
+                <h3 id="month-close-heading">Monatsabschluss</h3>
+                <p>
+                  Abgleiche und Quartalsbeiträge prüfen, anschließend einen
+                  Monatsbericht archivieren.
+                </p>
+              </div>
+              <button
+                id="open-month-close"
+                class="button button-secondary button-edit"
+                type="button"
+              >
+                Abschluss vorbereiten
+              </button>
+            </aside>
+            <section
+              class="recent-transactions"
+              aria-labelledby="recent-transactions-heading"
+            >
+              <div class="recent-transactions-heading">
+                <div>
+                  <h3 id="recent-transactions-heading">Letzte Buchungen</h3>
+                  <p>Die fünf neuesten Buchungen seit Beginn der Verwaltung.</p>
+                </div>
+                <button
+                  class="button button-secondary button-edit"
+                  type="button"
+                  data-finance-view="bookings"
+                >
+                  Alle Buchungen
+                </button>
+              </div>
+              <ul
+                id="recent-transactions-list"
+                class="recent-transactions-list"
+              ></ul>
+              <div class="recent-transactions-feedback">
+                <p
+                  id="recent-transactions-status"
+                  class="status"
+                  role="status"
+                  aria-live="polite"
+                >
+                  Nach der Anmeldung werden die letzten Buchungen angezeigt.
+                </p>
+                <button
+                  id="retry-recent-transactions"
+                  class="button button-secondary button-edit"
+                  type="button"
+                  hidden
+                >
+                  Erneut laden
+                </button>
+              </div>
+            </section>
+            <section
+              class="reconciliation-summary"
+              aria-labelledby="reconciliation-summary-heading"
+            >
+              <h3 id="reconciliation-summary-heading">
+                Abgleich nach Konto · <span id="reconciliation-period"></span>
+              </h3>
+              <p class="analytics-caption">
+                Anzahl und Bruttosumme der Buchungen; unabhängig von den übrigen
+                Filtern.
+              </p>
+              <div class="reconciliation-summary-grid">
+                <article class="reconciliation-account">
+                  <h4>Bankkonto</h4>
+                  <p>
+                    Offen
+                    <button
+                      id="bank-open-summary"
+                      class="reconciliation-summary-link"
+                      type="button"
+                      aria-label="Offene Bankbuchungen anzeigen"
+                    >
+                      –
+                    </button>
+                  </p>
+                  <p>
+                    Abgeglichen <strong id="bank-reconciled-summary">–</strong>
+                  </p>
+                </article>
+                <article class="reconciliation-account">
+                  <h4>PayPal-Konto</h4>
+                  <p>
+                    Offen
+                    <button
+                      id="paypal-open-summary"
+                      class="reconciliation-summary-link"
+                      type="button"
+                      aria-label="Offene PayPal-Buchungen anzeigen"
+                    >
+                      –
+                    </button>
+                  </p>
+                  <p>
+                    Abgeglichen
+                    <strong id="paypal-reconciled-summary">–</strong>
+                  </p>
+                </article>
+              </div>
+            </section>
+            <p class="finance-explanation">
+              Die Verwaltung beginnt am 01.10.2026. Bank- und PayPal-Salden
+              enthalten den jeweiligen Startsaldo sowie alle Buchungen ab diesem
+              Datum bis zum Ende des ausgewählten Zeitraums. Die Jahressummen
+              für Einnahmen und Ausgaben zeigen das laufende Kalenderjahr bis
+              heute; Monats- und Kategorieauswertungen beziehen sich auf den
+              ausgewählten Zeitraum. Der Kontofilter wirkt dort nur mit
+              aktiviertem „Summen nach Konto filtern“.
+            </p>
           </section>
-          <section class="reconciliation-summary" aria-labelledby="reconciliation-summary-heading">
-            <h3 id="reconciliation-summary-heading">Abgleich nach Konto · <span id="reconciliation-period"></span></h3>
-            <p class="analytics-caption">Anzahl und Bruttosumme der Buchungen; unabhängig von den übrigen Filtern.</p>
-            <div class="reconciliation-summary-grid">
-              <article class="reconciliation-account"><h4>Bankkonto</h4><p>Offen <button id="bank-open-summary" class="reconciliation-summary-link" type="button" aria-label="Offene Bankbuchungen anzeigen">–</button></p><p>Abgeglichen <strong id="bank-reconciled-summary">–</strong></p></article>
-              <article class="reconciliation-account"><h4>PayPal-Konto</h4><p>Offen <button id="paypal-open-summary" class="reconciliation-summary-link" type="button" aria-label="Offene PayPal-Buchungen anzeigen">–</button></p><p>Abgeglichen <strong id="paypal-reconciled-summary">–</strong></p></article>
-            </div>
+          <section
+            id="finance-view-contributions"
+            class="finance-view"
+            aria-label="Quartalsbeiträge"
+            tabindex="-1"
+            hidden
+          >
+            <section
+              class="contribution-section"
+              aria-labelledby="contribution-heading"
+            >
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Mannschaftskasse</p>
+                  <h3 id="contribution-heading">Quartalsbeiträge</h3>
+                </div>
+                <label
+                  >Jahr
+                  <select
+                    id="contribution-year"
+                    aria-label="Jahr der Beitragsübersicht"
+                  ></select
+                ></label>
+              </div>
+              <div
+                id="contribution-summary"
+                class="contribution-summary"
+                role="status"
+                aria-live="polite"
+              >
+                Beitragsübersicht wird geladen …
+              </div>
+              <div class="contribution-member-filters">
+                <label
+                  >Mitglied suchen
+                  <input
+                    id="contribution-member-search"
+                    type="search"
+                    placeholder="Name eingeben"
+                /></label>
+                <label
+                  >Status
+                  <select id="contribution-member-status">
+                    <option value="all">Alle Mitglieder</option>
+                    <option value="open">Mit offenen Beiträgen</option>
+                    <option value="overdue">Mit überfälligen Beiträgen</option>
+                    <option value="due">
+                      Mit Beiträgen innerhalb der Frist
+                    </option>
+                    <option value="paid">Alle fälligen Beiträge bezahlt</option>
+                  </select>
+                </label>
+                <button
+                  id="reset-contribution-filters"
+                  class="button button-secondary button-edit"
+                  type="button"
+                >
+                  Zurücksetzen
+                </button>
+              </div>
+              <p
+                id="contribution-filter-status"
+                class="contribution-filter-status"
+                role="status"
+                aria-live="polite"
+              ></p>
+              <p class="contribution-deadline-note">
+                Beiträge sind bis zum 15. des ersten Quartalsmonats fällig.
+                Offene Beiträge sind bis dahin orange markiert, danach rot.
+              </p>
+              <div
+                id="contribution-table-scroll"
+                class="table-scroll"
+                tabindex="-1"
+              >
+                <table class="contribution-table">
+                  <caption>
+                    Beitragsstatus pro Mitglied und Quartal
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th>Mitglied</th>
+                      <th>Q1</th>
+                      <th>Q2</th>
+                      <th>Q3</th>
+                      <th>Q4</th>
+                      <th>Offen (€)</th>
+                      <th>Status</th>
+                      <th data-admin-only hidden>Mitglied verwalten</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contribution-list"></tbody>
+                </table>
+              </div>
+              <details class="contribution-admin" data-admin-only hidden>
+                <summary>
+                  Verwaltung · Beitrag, Startsalden und Zuordnungen
+                </summary>
+                <div class="contribution-admin-content">
+                  <form
+                    id="contribution-rate-form"
+                    class="contribution-settings-form"
+                  >
+                    <label
+                      >Beitrag je Quartal (€)
+                      <input
+                        id="contribution-amount"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        required
+                    /></label>
+                    <label
+                      >Gültig ab Quartal
+                      <select id="contribution-rate-quarter" required></select
+                    ></label>
+                    <button class="button button-secondary" type="submit">
+                      Beitragssatz speichern
+                    </button>
+                  </form>
+                  <p class="analytics-caption">
+                    Ein neuer Beitragssatz gilt ab dem gewählten Quartal bis zum
+                    nächsten eingetragenen Satz. Frühere Zahlungen behalten den
+                    damals gültigen Betrag.
+                  </p>
+                  <ul
+                    id="contribution-rate-history"
+                    class="contribution-rate-history"
+                  ></ul>
+                  <form
+                    id="contribution-settings-form"
+                    class="contribution-settings-form"
+                  >
+                    <label
+                      >Startsaldo Bankkonto am 01.10.2026 (€)
+                      <input
+                        id="bank-opening-balance"
+                        type="number"
+                        step="0.01"
+                        required
+                    /></label>
+                    <label
+                      >Startsaldo PayPal am 01.10.2026 (€)
+                      <input
+                        id="paypal-opening-balance"
+                        type="number"
+                        step="0.01"
+                        required
+                    /></label>
+                    <button class="button button-secondary" type="submit">
+                      Startsalden speichern
+                    </button>
+                  </form>
+                  <p class="analytics-caption">
+                    Die Kontostände zum 01.10.2026 werden als Startsalden
+                    verwendet. Alle Buchungen ab diesem Datum werden darauf
+                    aufgerechnet.
+                  </p>
+                  <form
+                    id="contribution-member-form"
+                    class="contribution-inline-form"
+                  >
+                    <label
+                      >Mitglied hinzufügen
+                      <input
+                        id="contribution-member-name"
+                        maxlength="100"
+                        required
+                    /></label>
+                    <button class="button button-secondary" type="submit">
+                      Hinzufügen
+                    </button>
+                  </form>
+                  <form
+                    id="contribution-payment-form"
+                    class="contribution-payment-form"
+                  >
+                    <label
+                      >Mitglied
+                      <select id="contribution-payment-member" required></select
+                    ></label>
+                    <label
+                      >Einnahmen suchen
+                      <input
+                        id="contribution-payment-search"
+                        type="search"
+                        placeholder="Beschreibung durchsuchen"
+                    /></label>
+                    <label
+                      >Einnahme-Buchung
+                      <select
+                        id="contribution-payment-transaction"
+                        required
+                      ></select
+                    ></label>
+                    <label
+                      >Erstes Quartal
+                      <select
+                        id="contribution-payment-quarter"
+                        required
+                      ></select
+                    ></label>
+                    <label
+                      >Anzahl Quartale
+                      <select id="contribution-payment-count" required></select
+                    ></label>
+                    <button
+                      id="contribution-payment-load-more"
+                      class="button button-secondary"
+                      type="button"
+                    >
+                      Ältere Einnahmen laden
+                    </button>
+                    <button class="button" type="submit">
+                      Zahlung zuordnen
+                    </button>
+                  </form>
+                  <p class="analytics-caption">
+                    Eine Zahlung kann mehrere aufeinanderfolgende Quartale
+                    abdecken. Der Buchungsbetrag muss der Summe der für diese
+                    Quartale gültigen Beitragssätze entsprechen. Korrekturen
+                    heben die gesamte Zuordnung dieser Einnahme auf.
+                  </p>
+                  <p
+                    id="contribution-admin-status"
+                    class="status"
+                    role="status"
+                    aria-live="polite"
+                  ></p>
+                </div>
+              </details>
+              <p
+                id="contribution-error"
+                class="status status-error"
+                role="alert"
+                hidden
+              ></p>
+              <button
+                id="retry-contributions"
+                class="button button-secondary"
+                type="button"
+                hidden
+              >
+                Beitragsübersicht erneut laden
+              </button>
+            </section>
           </section>
-          <p class="finance-explanation">Die Verwaltung beginnt am 01.10.2026. Bank- und PayPal-Salden enthalten den jeweiligen Startsaldo sowie alle Buchungen ab diesem Datum bis zum Ende des ausgewählten Zeitraums. Die Jahressummen für Einnahmen und Ausgaben zeigen das laufende Kalenderjahr bis heute; Monats- und Kategorieauswertungen beziehen sich auf den ausgewählten Zeitraum. Der Kontofilter wirkt dort nur mit aktiviertem „Summen nach Konto filtern“.</p>
-          </section>
-          <section id="finance-view-contributions" class="finance-view" aria-label="Quartalsbeiträge" tabindex="-1" hidden>
-          <section class="contribution-section" aria-labelledby="contribution-heading">
-            <div class="section-heading">
-              <div><p class="eyebrow">Mannschaftskasse</p><h3 id="contribution-heading">Quartalsbeiträge</h3></div>
-              <label>Jahr <select id="contribution-year" aria-label="Jahr der Beitragsübersicht"></select></label>
-            </div>
-            <div id="contribution-summary" class="contribution-summary" role="status" aria-live="polite">Beitragsübersicht wird geladen …</div>
-            <div class="contribution-member-filters">
-              <label>Mitglied suchen <input id="contribution-member-search" type="search" placeholder="Name eingeben" /></label>
-              <label>Status
-                <select id="contribution-member-status">
-                  <option value="all">Alle Mitglieder</option>
-                  <option value="open">Mit offenen Beiträgen</option>
-                  <option value="overdue">Mit überfälligen Beiträgen</option>
-                  <option value="due">Mit Beiträgen innerhalb der Frist</option>
-                  <option value="paid">Alle fälligen Beiträge bezahlt</option>
-                </select>
-              </label>
-              <button id="reset-contribution-filters" class="button button-secondary button-edit" type="button">Zurücksetzen</button>
-            </div>
-            <p id="contribution-filter-status" class="contribution-filter-status" role="status" aria-live="polite"></p>
-            <p class="contribution-deadline-note">Beiträge sind bis zum 15. des ersten Quartalsmonats fällig. Offene Beiträge sind bis dahin orange markiert, danach rot.</p>
-            <div id="contribution-table-scroll" class="table-scroll" tabindex="-1">
-              <table class="contribution-table">
-                <caption>Beitragsstatus pro Mitglied und Quartal</caption>
-                <thead><tr><th>Mitglied</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Offen (€)</th><th>Status</th><th data-admin-only hidden>Mitglied verwalten</th></tr></thead>
-                <tbody id="contribution-list"></tbody>
-              </table>
-            </div>
-            <details class="contribution-admin" data-admin-only hidden>
-              <summary>Verwaltung · Beitrag, Startsalden und Zuordnungen</summary>
-              <div class="contribution-admin-content">
-                <form id="contribution-rate-form" class="contribution-settings-form">
-                  <label>Beitrag je Quartal (€) <input id="contribution-amount" type="number" min="0.01" step="0.01" required /></label>
-                  <label>Gültig ab Quartal <select id="contribution-rate-quarter" required></select></label>
-                  <button class="button button-secondary" type="submit">Beitragssatz speichern</button>
-                </form>
-                <p class="analytics-caption">Ein neuer Beitragssatz gilt ab dem gewählten Quartal bis zum nächsten eingetragenen Satz. Frühere Zahlungen behalten den damals gültigen Betrag.</p>
-                <ul id="contribution-rate-history" class="contribution-rate-history"></ul>
-                <form id="contribution-settings-form" class="contribution-settings-form">
-                  <label>Startsaldo Bankkonto am 01.10.2026 (€) <input id="bank-opening-balance" type="number" step="0.01" required /></label>
-                  <label>Startsaldo PayPal am 01.10.2026 (€) <input id="paypal-opening-balance" type="number" step="0.01" required /></label>
-                  <button class="button button-secondary" type="submit">Startsalden speichern</button>
-                </form>
-                <p class="analytics-caption">Die Kontostände zum 01.10.2026 werden als Startsalden verwendet. Alle Buchungen ab diesem Datum werden darauf aufgerechnet.</p>
-                <form id="contribution-member-form" class="contribution-inline-form">
-                  <label>Mitglied hinzufügen <input id="contribution-member-name" maxlength="100" required /></label>
-                  <button class="button button-secondary" type="submit">Hinzufügen</button>
-                </form>
-                <form id="contribution-payment-form" class="contribution-payment-form">
-                  <label>Mitglied <select id="contribution-payment-member" required></select></label>
-                  <label>Einnahmen suchen <input id="contribution-payment-search" type="search" placeholder="Beschreibung durchsuchen" /></label>
-                  <label>Einnahme-Buchung <select id="contribution-payment-transaction" required></select></label>
-                  <label>Erstes Quartal <select id="contribution-payment-quarter" required></select></label>
-                  <label>Anzahl Quartale <select id="contribution-payment-count" required></select></label>
-                  <button id="contribution-payment-load-more" class="button button-secondary" type="button">Ältere Einnahmen laden</button>
-                  <button class="button" type="submit">Zahlung zuordnen</button>
-                </form>
-                <p class="analytics-caption">Eine Zahlung kann mehrere aufeinanderfolgende Quartale abdecken. Der Buchungsbetrag muss der Summe der für diese Quartale gültigen Beitragssätze entsprechen. Korrekturen heben die gesamte Zuordnung dieser Einnahme auf.</p>
-                <p id="contribution-admin-status" class="status" role="status" aria-live="polite"></p>
+          <section
+            id="finance-view-bookings"
+            class="finance-view"
+            aria-label="Buchungen"
+            tabindex="-1"
+            hidden
+          >
+            <details id="analytics-panel" class="bookings-panel" open>
+              <summary>Auswertungen</summary>
+              <div class="analytics-grid">
+                <section
+                  class="analytics-card"
+                  aria-labelledby="monthly-heading"
+                >
+                  <h3 id="monthly-heading">Monatsübersicht</h3>
+                  <p class="analytics-caption">
+                    Einnahmen und Ausgaben im gewählten Zeitraum auf einen
+                    Blick.
+                  </p>
+                  <div class="analytics-legend">
+                    <span><i class="legend-income"></i>Einnahmen</span
+                    ><span><i class="legend-expense"></i>Ausgaben</span>
+                  </div>
+                  <div
+                    id="monthly-summary"
+                    class="monthly-summary"
+                    role="group"
+                    aria-label="Monatliche Einnahmen, Ausgaben und Salden"
+                    tabindex="0"
+                  ></div>
+                  <details class="analytics-data">
+                    <summary>Monatswerte als Tabelle anzeigen</summary>
+                    <div class="table-scroll">
+                      <table>
+                        <caption>
+                          Monatliche Einnahmen, Ausgaben und Salden
+                        </caption>
+                        <thead>
+                          <tr>
+                            <th>Monat</th>
+                            <th class="number">Einnahmen</th>
+                            <th class="number">Ausgaben</th>
+                            <th class="number">Saldo</th>
+                          </tr>
+                        </thead>
+                        <tbody id="monthly-data"></tbody>
+                      </table>
+                    </div>
+                  </details>
+                </section>
+                <section
+                  class="analytics-card"
+                  aria-labelledby="category-heading"
+                >
+                  <h3 id="category-heading">Ausgaben nach Kategorie</h3>
+                  <p class="analytics-caption">
+                    Anteil der Ausgaben im Vergleich zur stärksten Kategorie.
+                  </p>
+                  <div
+                    id="category-summary"
+                    class="category-summary"
+                    role="group"
+                    aria-label="Ausgaben nach Kategorie"
+                    tabindex="0"
+                  ></div>
+                  <details class="analytics-data">
+                    <summary>Kategoriewerte als Tabelle anzeigen</summary>
+                    <div class="table-scroll">
+                      <table>
+                        <caption>
+                          Ausgaben nach Kategorie
+                        </caption>
+                        <thead>
+                          <tr>
+                            <th>Kategorie</th>
+                            <th class="number">Ausgaben</th>
+                          </tr>
+                        </thead>
+                        <tbody id="category-data"></tbody>
+                      </table>
+                    </div>
+                  </details>
+                </section>
               </div>
             </details>
-            <p id="contribution-error" class="status status-error" role="alert" hidden></p>
-            <button id="retry-contributions" class="button button-secondary" type="button" hidden>Beitragsübersicht erneut laden</button>
-          </section>
-          </section>
-          <section id="finance-view-bookings" class="finance-view" aria-label="Buchungen" tabindex="-1" hidden>
-          <details id="analytics-panel" class="bookings-panel" open>
-            <summary>Auswertungen</summary>
-          <div class="analytics-grid">
-            <section class="analytics-card" aria-labelledby="monthly-heading">
-              <h3 id="monthly-heading">Monatsübersicht</h3>
-              <p class="analytics-caption">Einnahmen und Ausgaben im gewählten Zeitraum auf einen Blick.</p>
-              <div class="analytics-legend"><span><i class="legend-income"></i>Einnahmen</span><span><i class="legend-expense"></i>Ausgaben</span></div>
-              <div id="monthly-summary" class="monthly-summary" role="group" aria-label="Monatliche Einnahmen, Ausgaben und Salden" tabindex="0"></div>
-              <details class="analytics-data">
-                <summary>Monatswerte als Tabelle anzeigen</summary>
-                <div class="table-scroll"><table><caption>Monatliche Einnahmen, Ausgaben und Salden</caption><thead><tr><th>Monat</th><th class="number">Einnahmen</th><th class="number">Ausgaben</th><th class="number">Saldo</th></tr></thead><tbody id="monthly-data"></tbody></table></div>
-              </details>
-            </section>
-            <section class="analytics-card" aria-labelledby="category-heading">
-              <h3 id="category-heading">Ausgaben nach Kategorie</h3>
-              <p class="analytics-caption">Anteil der Ausgaben im Vergleich zur stärksten Kategorie.</p>
-              <div id="category-summary" class="category-summary" role="group" aria-label="Ausgaben nach Kategorie" tabindex="0"></div>
-              <details class="analytics-data">
-                <summary>Kategoriewerte als Tabelle anzeigen</summary>
-                <div class="table-scroll"><table><caption>Ausgaben nach Kategorie</caption><thead><tr><th>Kategorie</th><th class="number">Ausgaben</th></tr></thead><tbody id="category-data"></tbody></table></div>
-              </details>
-            </section>
-          </div>
-          </details>
-          <details id="transactions-panel" class="bookings-panel" open>
-            <summary>Buchungen</summary>
-          <div class="finance-toolbar">
-            <div class="filter-controls">
-              <fieldset class="filter-group period-filter-group">
-                <legend>Zeitraum</legend>
-              <label>Jahr <select id="year-filter"></select></label>
-              <label>Von <input id="date-from-filter" type="date" min="2026-10-01" /></label>
-              <label>Bis <input id="date-to-filter" type="date" min="2026-10-01" /></label>
-              <div class="date-presets" role="group" aria-label="Schnellfilter für den Zeitraum">
-                <button class="button button-secondary button-edit" type="button" data-date-preset="30">Letzte 30 Tage</button>
-                <button class="button button-secondary button-edit" type="button" data-date-preset="month">Dieser Monat</button>
-                <button class="button button-secondary button-edit" type="button" data-date-preset="year">Dieses Jahr</button>
+            <details id="transactions-panel" class="bookings-panel" open>
+              <summary>Buchungen</summary>
+              <div class="finance-toolbar">
+                <div class="filter-controls">
+                  <fieldset class="filter-group period-filter-group">
+                    <legend>Zeitraum</legend>
+                    <label
+                      >Jahr
+                      <select id="year-filter"></select
+                    ></label>
+                    <label
+                      >Von
+                      <input id="date-from-filter" type="date" min="2026-10-01"
+                    /></label>
+                    <label
+                      >Bis
+                      <input id="date-to-filter" type="date" min="2026-10-01"
+                    /></label>
+                    <div
+                      class="date-presets"
+                      role="group"
+                      aria-label="Schnellfilter für den Zeitraum"
+                    >
+                      <button
+                        class="button button-secondary button-edit"
+                        type="button"
+                        data-date-preset="30"
+                      >
+                        Letzte 30 Tage
+                      </button>
+                      <button
+                        class="button button-secondary button-edit"
+                        type="button"
+                        data-date-preset="month"
+                      >
+                        Dieser Monat
+                      </button>
+                      <button
+                        class="button button-secondary button-edit"
+                        type="button"
+                        data-date-preset="year"
+                      >
+                        Dieses Jahr
+                      </button>
+                    </div>
+                  </fieldset>
+                  <fieldset class="filter-group account-filter-group">
+                    <legend>Konto</legend>
+                    <label
+                      >Konto
+                      <select id="account-filter">
+                        <option value="ALL">Alle Konten</option>
+                        <option value="BANK">Bankkonto</option>
+                        <option value="PAYPAL">PayPal-Konto</option>
+                      </select>
+                    </label>
+                    <label class="checkbox-label"
+                      ><input id="summary-filter" type="checkbox" /> Summen nach
+                      Konto filtern</label
+                    >
+                  </fieldset>
+                  <fieldset class="filter-group booking-filter-group">
+                    <legend>Buchungen</legend>
+                    <label
+                      >Suche
+                      <input
+                        id="transaction-search"
+                        type="search"
+                        placeholder="Beschreibung oder Kategorie"
+                    /></label>
+                    <label
+                      >Art
+                      <select id="type-filter">
+                        <option value="ALL">Alle Buchungen</option>
+                        <option value="INCOME">Nur Einnahmen</option>
+                        <option value="EXPENSE">Nur Ausgaben</option>
+                      </select>
+                    </label>
+                    <label
+                      >Abgleich
+                      <select id="reconciliation-filter">
+                        <option value="ALL">Alle Buchungen</option>
+                        <option value="OPEN">Noch nicht abgeglichen</option>
+                        <option value="RECONCILED">Abgeglichen</option>
+                      </select>
+                    </label>
+                  </fieldset>
+                </div>
+                <div class="toolbar-actions">
+                  <button
+                    id="reset-filters"
+                    class="button button-secondary"
+                    type="button"
+                  >
+                    Filter zurücksetzen
+                  </button>
+                  <button
+                    id="export-transactions"
+                    class="button button-secondary"
+                    type="button"
+                  >
+                    PDF exportieren
+                  </button>
+                  <button
+                    id="export-csv-transactions"
+                    class="button button-secondary"
+                    type="button"
+                  >
+                    CSV konfigurieren
+                  </button>
+                  <button
+                    id="bulk-reconcile"
+                    class="button button-reconcile"
+                    type="button"
+                    disabled
+                    hidden
+                    data-admin-only
+                  >
+                    Auswahl abgleichen
+                  </button>
+                  <button
+                    id="manage-categories"
+                    class="button button-secondary"
+                    type="button"
+                    hidden
+                    data-admin-only
+                  >
+                    Kategorien verwalten
+                  </button>
+                  <button
+                    id="import-transactions"
+                    class="button button-secondary"
+                    type="button"
+                    hidden
+                    data-admin-only
+                  >
+                    CSV importieren
+                  </button>
+                  <button
+                    id="manage-recurring"
+                    class="button button-secondary"
+                    type="button"
+                    hidden
+                    data-admin-only
+                  >
+                    Wiederholungen
+                  </button>
+                  <label
+                    id="show-deleted-label"
+                    class="checkbox-label"
+                    hidden
+                    data-admin-only
+                    ><input id="show-deleted" type="checkbox" /> Gelöschte
+                    Buchungen</label
+                  >
+                  <button
+                    id="new-transaction"
+                    class="button"
+                    type="button"
+                    hidden
+                    data-admin-only
+                  >
+                    + Neue Buchung
+                  </button>
+                </div>
               </div>
-              </fieldset>
-              <fieldset class="filter-group account-filter-group">
-                <legend>Konto</legend>
-              <label>Konto
-                <select id="account-filter">
-                  <option value="ALL">Alle Konten</option>
-                  <option value="BANK">Bankkonto</option>
-                  <option value="PAYPAL">PayPal-Konto</option>
-                </select>
-              </label>
-              <label class="checkbox-label"><input id="summary-filter" type="checkbox"> Summen nach Konto filtern</label>
-              </fieldset>
-              <fieldset class="filter-group booking-filter-group">
-                <legend>Buchungen</legend>
-              <label>Suche <input id="transaction-search" type="search" placeholder="Beschreibung oder Kategorie"></label>
-              <label>Art
-                <select id="type-filter">
-                  <option value="ALL">Alle Buchungen</option>
-                  <option value="INCOME">Nur Einnahmen</option>
-                  <option value="EXPENSE">Nur Ausgaben</option>
-                </select>
-              </label>
-              <label>Abgleich
-                <select id="reconciliation-filter">
-                  <option value="ALL">Alle Buchungen</option>
-                  <option value="OPEN">Noch nicht abgeglichen</option>
-                  <option value="RECONCILED">Abgeglichen</option>
-                </select>
-              </label>
-              </fieldset>
-            </div>
-            <div class="toolbar-actions">
-              <button id="reset-filters" class="button button-secondary" type="button">Filter zurücksetzen</button>
-              <button id="export-transactions" class="button button-secondary" type="button">PDF exportieren</button>
-              <button id="export-csv-transactions" class="button button-secondary" type="button">CSV konfigurieren</button>
-              <button id="bulk-reconcile" class="button button-reconcile" type="button" disabled hidden data-admin-only>Auswahl abgleichen</button>
-              <button id="manage-categories" class="button button-secondary" type="button" hidden data-admin-only>Kategorien verwalten</button>
-              <button id="import-transactions" class="button button-secondary" type="button" hidden data-admin-only>CSV importieren</button>
-              <button id="manage-recurring" class="button button-secondary" type="button" hidden data-admin-only>Wiederholungen</button>
-              <label id="show-deleted-label" class="checkbox-label" hidden data-admin-only><input id="show-deleted" type="checkbox"> Gelöschte Buchungen</label>
-              <button id="new-transaction" class="button" type="button" hidden data-admin-only>+ Neue Buchung</button>
-            </div>
-          </div>
-          <div id="active-filters" class="active-filters" aria-live="polite" aria-label="Aktive Filter"></div>
-          <div class="saved-filter-toolbar">
-            <div id="saved-filter-chips" class="saved-filter-chips" role="group" aria-label="Gespeicherte Filter"></div>
-            <button id="save-filter" class="button button-secondary button-edit" type="button">Aktuelle Filter speichern</button>
-          </div>
-          <div class="transaction-feedback">
-            <p id="finance-status" class="status" role="status" aria-live="polite"></p>
-            <button id="retry-transactions" class="button button-secondary" type="button" hidden>Erneut versuchen</button>
-          </div>
-          <div class="table-scroll">
-            <table><caption class="sr-only">Buchungen</caption><thead><tr><th id="transaction-select-header" hidden data-admin-only><input id="select-visible-transactions" type="checkbox" aria-label="Offene Buchungen dieser Seite auswählen" /></th><th>Datum</th><th>Konto</th><th>Beschreibung</th><th>Typ</th><th class="number">Betrag</th><th>Kategorie</th><th>Abgleich</th><th>Geändert</th><th id="transactions-actions-header" hidden data-admin-only><span class="sr-only">Aktion</span></th></tr></thead><tbody id="transaction-list"></tbody></table>
-          </div>
-          <div id="transaction-empty-state" class="transaction-empty-state" role="status" hidden>
-            <p id="transaction-empty-message"></p>
-            <button id="reset-empty-transaction-filters" class="button button-secondary button-edit" type="button" hidden>Filter zurücksetzen</button>
-          </div>
-          <div class="pagination">
-            <button id="previous-page" class="button button-secondary" type="button" disabled>← Zurück</button>
-            <span id="page-status" class="muted"></span>
-            <button id="next-page" class="button button-secondary" type="button" disabled>Weiter →</button>
-          </div>
-          </details>
+              <div
+                id="active-filters"
+                class="active-filters"
+                aria-live="polite"
+                aria-label="Aktive Filter"
+              ></div>
+              <div class="saved-filter-toolbar">
+                <div
+                  id="saved-filter-chips"
+                  class="saved-filter-chips"
+                  role="group"
+                  aria-label="Gespeicherte Filter"
+                ></div>
+                <button
+                  id="save-filter"
+                  class="button button-secondary button-edit"
+                  type="button"
+                >
+                  Aktuelle Filter speichern
+                </button>
+              </div>
+              <div class="transaction-feedback">
+                <p
+                  id="finance-status"
+                  class="status"
+                  role="status"
+                  aria-live="polite"
+                ></p>
+                <button
+                  id="retry-transactions"
+                  class="button button-secondary"
+                  type="button"
+                  hidden
+                >
+                  Erneut versuchen
+                </button>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <caption class="sr-only">
+                    Buchungen
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th id="transaction-select-header" hidden data-admin-only>
+                        <input
+                          id="select-visible-transactions"
+                          type="checkbox"
+                          aria-label="Offene Buchungen dieser Seite auswählen"
+                        />
+                      </th>
+                      <th>Datum</th>
+                      <th>Konto</th>
+                      <th>Beschreibung</th>
+                      <th>Typ</th>
+                      <th class="number">Betrag</th>
+                      <th>Kategorie</th>
+                      <th>Abgleich</th>
+                      <th>Geändert</th>
+                      <th
+                        id="transactions-actions-header"
+                        hidden
+                        data-admin-only
+                      >
+                        <span class="sr-only">Aktion</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody id="transaction-list"></tbody>
+                </table>
+              </div>
+              <div
+                id="transaction-empty-state"
+                class="transaction-empty-state"
+                role="status"
+                hidden
+              >
+                <p id="transaction-empty-message"></p>
+                <button
+                  id="reset-empty-transaction-filters"
+                  class="button button-secondary button-edit"
+                  type="button"
+                  hidden
+                >
+                  Filter zurücksetzen
+                </button>
+              </div>
+              <div class="pagination">
+                <button
+                  id="previous-page"
+                  class="button button-secondary"
+                  type="button"
+                  disabled
+                >
+                  ← Zurück
+                </button>
+                <span id="page-status" class="muted"></span>
+                <button
+                  id="next-page"
+                  class="button button-secondary"
+                  type="button"
+                  disabled
+                >
+                  Weiter →
+                </button>
+              </div>
+            </details>
           </section>
           <div class="setup-status" aria-label="Supabase-Einrichtungsdiagnose">
-            <p id="database-setup-status" role="status">Datenbankzugriff: wird geprüft …</p>
-            <p id="report-setup-status" role="status">Berichtsfunktionen: werden geprüft …</p>
-            <p id="write-setup-status" role="status">Schreibrechte: werden bei der ersten Änderung geprüft.</p>
+            <p id="database-setup-status" role="status">
+              Datenbankzugriff: wird geprüft …
+            </p>
+            <p id="report-setup-status" role="status">
+              Berichtsfunktionen: werden geprüft …
+            </p>
+            <p id="write-setup-status" role="status">
+              Schreibrechte: werden bei der ersten Änderung geprüft.
+            </p>
           </div>
         </div>
-        <p id="finance-login-hint" class="muted">Die Finanzdaten sind aus Datenschutzgründen nur für angemeldete Mitglieder sichtbar. Melde dich an, um die Mannschaftskasse zu sehen.</p>
+        <p id="finance-login-hint" class="muted">
+          Die Finanzdaten sind aus Datenschutzgründen nur für angemeldete
+          Mitglieder sichtbar. Melde dich an, um die Mannschaftskasse zu sehen.
+        </p>
       </section>
     </main>
 
-    <footer><div class="footer-meta"><span>© <span id="copyright-year"></span> Wesselbleker Prinzen im UHC</span><span>Version <span id="app-version">v1.1.0</span></span></div><a href="mailto:clemens@uhc-prinzen.de">Kontakt</a></footer>
+    <footer>
+      <div class="footer-meta">
+        <span
+          >© <span id="copyright-year"></span> Wesselbleker Prinzen im UHC | </span
+        ><span id="app-version">v1.1.0</span>
+      </div>
+      <a href="mailto:clemens@uhc-prinzen.de">Kontakt</a>
+    </footer>
 
     <dialog id="login-dialog">
       <form id="login-form" class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Mannschaftskasse</p><h2>Anmelden</h2>
-        <p class="muted">Mitglieder können die Buchungen nach Anmeldung ansehen. Anlegen, Ändern und Löschen ist Administratoren vorbehalten.</p>
-        <label>E-Mail <input id="email" type="email" autocomplete="username" required /></label>
-        <label>Passwort <input id="password" type="password" autocomplete="current-password" required /></label>
-        <button class="button" type="submit">Anmelden</button><p id="login-status" class="status" role="status" aria-live="polite"></p>
-        <button id="request-password-reset" class="button button-secondary" type="button">Passwort vergessen?</button>
-        <p id="password-reset-request-status" class="status" role="status" aria-live="polite"></p>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Mannschaftskasse</p>
+        <h2>Anmelden</h2>
+        <p class="muted">
+          Mitglieder können die Buchungen nach Anmeldung ansehen. Anlegen,
+          Ändern und Löschen ist Administratoren vorbehalten.
+        </p>
+        <label
+          >E-Mail
+          <input id="email" type="email" autocomplete="username" required
+        /></label>
+        <label
+          >Passwort
+          <input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            required
+        /></label>
+        <button class="button" type="submit">Anmelden</button>
+        <p
+          id="login-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <button
+          id="request-password-reset"
+          class="button button-secondary"
+          type="button"
+        >
+          Passwort vergessen?
+        </button>
+        <p
+          id="password-reset-request-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
       </form>
     </dialog>
     <dialog id="password-reset-dialog">
       <form id="password-reset-form" class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Mannschaftskasse</p><h2>Neues Passwort festlegen</h2>
-        <label>Neues Passwort <input id="new-password" type="password" autocomplete="new-password" minlength="8" required /></label>
-        <label>Passwort wiederholen <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Mannschaftskasse</p>
+        <h2>Neues Passwort festlegen</h2>
+        <label
+          >Neues Passwort
+          <input
+            id="new-password"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+        /></label>
+        <label
+          >Passwort wiederholen
+          <input
+            id="confirm-password"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+        /></label>
         <button class="button" type="submit">Passwort speichern</button>
-        <p id="password-reset-status" class="status" role="status" aria-live="polite"></p>
+        <p
+          id="password-reset-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
       </form>
     </dialog>
     <dialog id="category-dialog">
       <form id="category-management-form" class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Nur Administratoren</p><h2>Kategorien verwalten</h2>
-        <label>Neue Kategorie <input id="new-category-name" maxlength="60" required /></label>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Nur Administratoren</p>
+        <h2>Kategorien verwalten</h2>
+        <label
+          >Neue Kategorie <input id="new-category-name" maxlength="60" required
+        /></label>
         <button class="button" type="submit">Kategorie hinzufügen</button>
-        <p id="category-management-status" class="status" role="status" aria-live="polite"></p>
+        <p
+          id="category-management-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
         <ul id="category-management-list" class="category-management-list"></ul>
       </form>
     </dialog>
     <dialog id="csv-import-dialog">
       <form id="csv-import-form" class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Nur Administratoren</p><h2>CSV importieren</h2>
-        <p class="muted">Unterstützt CSV-Dateien mit Komma, Semikolon oder Tabulator, bis zu 5 MB und 500 Buchungen pro Import. Die Vorschau zeigt jeweils 50 Zeilen. Bankprofile ordnen typische Spalten zu; der Beispiel-CSV-Download zeigt das erwartete Format. Bei einem einzelnen Betragsfeld bestimmt das Vorzeichen Einnahme oder Ausgabe. Nicht zugeordnete Konten verwenden das Bankkonto; ohne Kategorie wird „Sonstiges“ genutzt.</p>
-        <label>CSV-Profil
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Nur Administratoren</p>
+        <h2>CSV importieren</h2>
+        <p class="muted">
+          Unterstützt CSV-Dateien mit Komma, Semikolon oder Tabulator, bis zu 5
+          MB und 500 Buchungen pro Import. Die Vorschau zeigt jeweils 50 Zeilen.
+          Bankprofile ordnen typische Spalten zu; der Beispiel-CSV-Download
+          zeigt das erwartete Format. Bei einem einzelnen Betragsfeld bestimmt
+          das Vorzeichen Einnahme oder Ausgabe. Nicht zugeordnete Konten
+          verwenden das Bankkonto; ohne Kategorie wird „Sonstiges“ genutzt.
+        </p>
+        <label
+          >CSV-Profil
           <select id="csv-profile">
             <option value="auto">Automatisch erkennen</option>
             <option value="generic">Standard / beliebige Bank</option>
@@ -323,98 +1115,402 @@
             <option value="paypal">PayPal</option>
           </select>
         </label>
-        <button id="download-csv-example" class="button button-secondary" type="button">Beispiel-CSV herunterladen</button>
-        <label>CSV-Datei (max. 5 MB) <input id="csv-file" type="file" accept=".csv,text/csv,text/plain" required /></label>
+        <button
+          id="download-csv-example"
+          class="button button-secondary"
+          type="button"
+        >
+          Beispiel-CSV herunterladen
+        </button>
+        <label
+          >CSV-Datei (max. 5 MB)
+          <input
+            id="csv-file"
+            type="file"
+            accept=".csv,text/csv,text/plain"
+            required
+        /></label>
         <div id="csv-column-mapping" class="csv-column-mapping"></div>
-        <p id="csv-import-status" class="status" role="status" aria-live="polite"></p>
-        <div class="table-scroll csv-preview-scroll"><table><caption>Vorschau des CSV-Imports</caption><thead><tr><th>Zeile</th><th>Datum</th><th>Art</th><th>Konto</th><th>Beschreibung</th><th>Betrag</th><th>Kategorie</th><th>Prüfung</th></tr></thead><tbody id="csv-preview"></tbody></table></div>
-        <div class="pagination csv-preview-pagination">
-          <button id="csv-preview-previous" class="button button-secondary button-edit" type="button" disabled>← Vorherige</button>
-          <span id="csv-preview-page-status" class="muted" aria-live="polite">Keine Vorschau vorhanden.</span>
-          <button id="csv-preview-next" class="button button-secondary button-edit" type="button" disabled>Nächste →</button>
+        <p
+          id="csv-import-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <div class="table-scroll csv-preview-scroll">
+          <table>
+            <caption>
+              Vorschau des CSV-Imports
+            </caption>
+            <thead>
+              <tr>
+                <th>Zeile</th>
+                <th>Datum</th>
+                <th>Art</th>
+                <th>Konto</th>
+                <th>Beschreibung</th>
+                <th>Betrag</th>
+                <th>Kategorie</th>
+                <th>Prüfung</th>
+              </tr>
+            </thead>
+            <tbody id="csv-preview"></tbody>
+          </table>
         </div>
-        <div class="dialog-actions"><button id="csv-import-submit" class="button" type="submit" disabled>Geprüfte Buchungen importieren</button></div>
+        <div class="pagination csv-preview-pagination">
+          <button
+            id="csv-preview-previous"
+            class="button button-secondary button-edit"
+            type="button"
+            disabled
+          >
+            ← Vorherige
+          </button>
+          <span id="csv-preview-page-status" class="muted" aria-live="polite"
+            >Keine Vorschau vorhanden.</span
+          >
+          <button
+            id="csv-preview-next"
+            class="button button-secondary button-edit"
+            type="button"
+            disabled
+          >
+            Nächste →
+          </button>
+        </div>
+        <div class="dialog-actions">
+          <button id="csv-import-submit" class="button" type="submit" disabled>
+            Geprüfte Buchungen importieren
+          </button>
+        </div>
       </form>
     </dialog>
     <dialog id="recurring-dialog">
       <form id="recurring-form" class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Nur Administratoren</p><h2>Wiederholungsbuchungen</h2>
-        <p class="muted">Fällige Buchungen werden nur auf Knopfdruck erstellt. Der eindeutige Termin verhindert doppelte Buchungen.</p>
-        <button id="create-due-recurring" class="button button-secondary" type="button">Fällige Buchungen jetzt erzeugen</button>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Nur Administratoren</p>
+        <h2>Wiederholungsbuchungen</h2>
+        <p class="muted">
+          Fällige Buchungen werden nur auf Knopfdruck erstellt. Der eindeutige
+          Termin verhindert doppelte Buchungen.
+        </p>
+        <button
+          id="create-due-recurring"
+          class="button button-secondary"
+          type="button"
+        >
+          Fällige Buchungen jetzt erzeugen
+        </button>
         <ul id="recurring-list" class="category-management-list"></ul>
         <h3 id="recurring-form-heading">Wiederholung hinzufügen</h3>
-        <label>Beschreibung <input id="recurring-description" maxlength="120" required /></label>
+        <label
+          >Beschreibung
+          <input id="recurring-description" maxlength="120" required
+        /></label>
         <div class="form-row">
-          <label>Typ <select id="recurring-type"><option value="INCOME">Einnahme</option><option value="EXPENSE">Ausgabe</option></select></label>
-          <label>Konto <select id="recurring-account"><option value="BANK">Bankkonto</option><option value="PAYPAL">PayPal-Konto</option></select></label>
+          <label
+            >Typ
+            <select id="recurring-type">
+              <option value="INCOME">Einnahme</option>
+              <option value="EXPENSE">Ausgabe</option>
+            </select></label
+          >
+          <label
+            >Konto
+            <select id="recurring-account">
+              <option value="BANK">Bankkonto</option>
+              <option value="PAYPAL">PayPal-Konto</option>
+            </select></label
+          >
         </div>
         <div class="form-row">
-          <label>Betrag in Euro <input id="recurring-amount" type="number" min="0.01" step="0.01" required /></label>
-          <label>Kategorie <select id="recurring-category" required></select></label>
+          <label
+            >Betrag in Euro
+            <input
+              id="recurring-amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+          /></label>
+          <label
+            >Kategorie
+            <select id="recurring-category" required></select
+          ></label>
         </div>
         <div class="form-row">
-          <label>Erste Fälligkeit <input id="recurring-next-date" type="date" min="2026-10-01" required /></label>
-          <label>Rhythmus <select id="recurring-interval"><option value="weekly">Wöchentlich</option><option value="monthly" selected>Monatlich</option><option value="yearly">Jährlich</option></select></label>
+          <label
+            >Erste Fälligkeit
+            <input
+              id="recurring-next-date"
+              type="date"
+              min="2026-10-01"
+              required
+          /></label>
+          <label
+            >Rhythmus
+            <select id="recurring-interval">
+              <option value="weekly">Wöchentlich</option>
+              <option value="monthly" selected>Monatlich</option>
+              <option value="yearly">Jährlich</option>
+            </select></label
+          >
         </div>
-        <label>Letzte Fälligkeit (optional) <input id="recurring-end-date" type="date" /></label>
-        <div class="dialog-actions"><button id="recurring-cancel-edit" class="button button-secondary" type="button" hidden>Bearbeiten abbrechen</button><button class="button" type="submit">Wiederholung speichern</button></div>
-        <p id="recurring-status" class="status" role="status" aria-live="polite"></p>
+        <label
+          >Letzte Fälligkeit (optional)
+          <input id="recurring-end-date" type="date"
+        /></label>
+        <div class="dialog-actions">
+          <button
+            id="recurring-cancel-edit"
+            class="button button-secondary"
+            type="button"
+            hidden
+          >
+            Bearbeiten abbrechen</button
+          ><button class="button" type="submit">Wiederholung speichern</button>
+        </div>
+        <p
+          id="recurring-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
       </form>
     </dialog>
     <dialog id="audit-dialog">
       <div class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Buchungshistorie</p><h2 id="audit-heading">Änderungsverlauf</h2>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Buchungshistorie</p>
+        <h2 id="audit-heading">Änderungsverlauf</h2>
         <ol id="audit-history" class="audit-history"></ol>
-        <p id="audit-status" class="status" role="status" aria-live="polite"></p>
+        <p
+          id="audit-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
       </div>
     </dialog>
     <dialog id="month-close-dialog">
       <div class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Nur Administratoren</p><h2>Monatsabschluss vorbereiten</h2>
-        <p class="muted">Prüfe die Monatswerte und bestätige jeden Prüfschritt. Der Bericht wird als HTML-Datei heruntergeladen und nicht automatisch in der Datenbank gespeichert.</p>
-        <label>Abschlussmonat <input id="month-close-month" type="month" min="2026-10" required /></label>
-        <button id="refresh-month-close" class="button button-secondary" type="button">Monatswerte laden</button>
-        <p id="month-close-status" class="status" role="status" aria-live="polite"></p>
-        <section id="month-close-summary" class="month-close-summary" aria-live="polite" hidden></section>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Nur Administratoren</p>
+        <h2>Monatsabschluss vorbereiten</h2>
+        <p class="muted">
+          Prüfe die Monatswerte und bestätige jeden Prüfschritt. Der Bericht
+          wird als HTML-Datei heruntergeladen und nicht automatisch in der
+          Datenbank gespeichert.
+        </p>
+        <label
+          >Abschlussmonat
+          <input id="month-close-month" type="month" min="2026-10" required
+        /></label>
+        <button
+          id="refresh-month-close"
+          class="button button-secondary"
+          type="button"
+        >
+          Monatswerte laden
+        </button>
+        <p
+          id="month-close-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <section
+          id="month-close-summary"
+          class="month-close-summary"
+          aria-live="polite"
+          hidden
+        ></section>
         <ol id="month-close-checklist" class="month-close-checklist"></ol>
-        <button id="download-month-close-report" class="button" type="button" disabled>Geprüften Monatsbericht archivieren</button>
+        <button
+          id="download-month-close-report"
+          class="button"
+          type="button"
+          disabled
+        >
+          Geprüften Monatsbericht archivieren
+        </button>
       </div>
     </dialog>
     <dialog id="csv-export-dialog">
       <form id="csv-export-form" class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Buchungsexport</p><h2>CSV-Export konfigurieren</h2>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Buchungsexport</p>
+        <h2>CSV-Export konfigurieren</h2>
         <fieldset class="export-column-list">
           <legend>Spalten für Buchungen</legend>
-          <label><input type="checkbox" name="export-column" value="transaction_date" checked /> Datum</label>
-          <label><input type="checkbox" name="export-column" value="account" checked /> Konto</label>
-          <label><input type="checkbox" name="export-column" value="description" checked /> Beschreibung</label>
-          <label><input type="checkbox" name="export-column" value="type" checked /> Art</label>
-          <label><input type="checkbox" name="export-column" value="amount" checked /> Betrag</label>
-          <label><input type="checkbox" name="export-column" value="category" checked /> Kategorie</label>
-          <label><input type="checkbox" name="export-column" value="reconciled" checked /> Abgleichstatus</label>
-          <label><input type="checkbox" name="export-column" value="reconciled_at" checked /> Abgeglichen am</label>
-          <label><input type="checkbox" name="export-column" value="reconciled_by_email" checked /> Abgeglichen von</label>
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="transaction_date"
+              checked
+            />
+            Datum</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="account"
+              checked
+            />
+            Konto</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="description"
+              checked
+            />
+            Beschreibung</label
+          >
+          <label
+            ><input type="checkbox" name="export-column" value="type" checked />
+            Art</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="amount"
+              checked
+            />
+            Betrag</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="category"
+              checked
+            />
+            Kategorie</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="reconciled"
+              checked
+            />
+            Abgleichstatus</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="reconciled_at"
+              checked
+            />
+            Abgeglichen am</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              name="export-column"
+              value="reconciled_by_email"
+              checked
+            />
+            Abgeglichen von</label
+          >
         </fieldset>
-        <label id="export-audit-label" class="checkbox-label" hidden data-admin-only><input id="export-audit" type="checkbox" /> Änderungsverlauf zusätzlich exportieren</label>
-        <p id="csv-export-status" class="status" role="status" aria-live="polite"></p>
+        <label
+          id="export-audit-label"
+          class="checkbox-label"
+          hidden
+          data-admin-only
+          ><input id="export-audit" type="checkbox" /> Änderungsverlauf
+          zusätzlich exportieren</label
+        >
+        <p
+          id="csv-export-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
         <button class="button" type="submit">CSV herunterladen</button>
       </form>
     </dialog>
     <dialog id="transaction-dialog">
       <form id="transaction-form" class="dialog-form">
-        <button class="dialog-close" type="button" data-close-dialog aria-label="Dialog schließen">×</button>
-        <p class="eyebrow">Mannschaftskasse</p><h2 id="transaction-dialog-title">Neue Buchung</h2>
+        <button
+          class="dialog-close"
+          type="button"
+          data-close-dialog
+          aria-label="Dialog schließen"
+        >
+          ×
+        </button>
+        <p class="eyebrow">Mannschaftskasse</p>
+        <h2 id="transaction-dialog-title">Neue Buchung</h2>
         <p id="transaction-mode-hint" class="muted" role="status"></p>
-        <label>Typ <select id="transaction-type" required><option value="INCOME">Einnahme</option><option value="EXPENSE">Ausgabe</option></select></label>
-        <label>Konto <select id="transaction-account" required><option value="BANK">Bankkonto</option><option value="PAYPAL">PayPal-Konto</option></select></label>
-        <label>Beschreibung <input id="transaction-description" required maxlength="120" /></label>
-        <label>Betrag in Euro <input id="transaction-amount" type="number" min="0.01" step="0.01" required /></label>
-        <label>Datum <input id="transaction-date" type="date" min="2026-10-01" required /></label>
-        <label>Kategorie
+        <label
+          >Typ
+          <select id="transaction-type" required>
+            <option value="INCOME">Einnahme</option>
+            <option value="EXPENSE">Ausgabe</option>
+          </select></label
+        >
+        <label
+          >Konto
+          <select id="transaction-account" required>
+            <option value="BANK">Bankkonto</option>
+            <option value="PAYPAL">PayPal-Konto</option>
+          </select></label
+        >
+        <label
+          >Beschreibung
+          <input id="transaction-description" required maxlength="120"
+        /></label>
+        <label
+          >Betrag in Euro
+          <input
+            id="transaction-amount"
+            type="number"
+            min="0.01"
+            step="0.01"
+            required
+        /></label>
+        <label
+          >Datum
+          <input id="transaction-date" type="date" min="2026-10-01" required
+        /></label>
+        <label
+          >Kategorie
           <select id="transaction-category" required>
             <option value="Prinzenkröten">Prinzenkröten</option>
             <option value="Turnier">Turnier</option>
@@ -426,14 +1522,30 @@
           </select>
         </label>
         <div class="dialog-actions">
-          <button id="cancel-transaction" class="button button-secondary" type="button">Abbrechen</button>
-          <button id="transaction-submit" class="button" type="submit">Speichern</button>
+          <button
+            id="cancel-transaction"
+            class="button button-secondary"
+            type="button"
+          >
+            Abbrechen
+          </button>
+          <button id="transaction-submit" class="button" type="submit">
+            Speichern
+          </button>
         </div>
-        <p id="transaction-status" class="status" role="status" aria-live="polite"></p>
+        <p
+          id="transaction-status"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
       </form>
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <script type="module" src="scripts/app.js?v=20261014-month-close-receipts"></script>
+    <script
+      type="module"
+      src="scripts/app.js?v=20261014-month-close-receipts"
+    ></script>
   </body>
 </html>
