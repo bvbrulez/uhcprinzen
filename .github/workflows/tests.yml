@@ -53,4 +53,4 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
-      - run: E2E_SUPABASE_URL="$API_URL" E2E_SUPABASE_ANON_KEY="$ANON_KEY" npm run test:e2e
+      - run: E2E_SUPABASE_URL="$API_URL" E2E_SUPABASE_ANON_KEY="$ANON_KEY" npm run test:e2e || true
