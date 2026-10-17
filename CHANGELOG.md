@@ -567,6 +567,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-18:
+- `A – .github/workflows/release.yml`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-18:
 - `M – VERSION`
 
 ### Änderungen aus diesem Commit
