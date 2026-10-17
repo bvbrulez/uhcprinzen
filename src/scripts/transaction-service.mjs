@@ -54,7 +54,7 @@ export function createTransactionService(client) {
     }
 
     return warnings;
-  },
+  }
 
   async function loadYears(startDate) {
     const { data, error } = await client.rpc("get_transaction_years");
@@ -372,6 +372,6 @@ export function createTransactionService(client) {
       const { data, error } = await query.select("id, deleted_at");
       if (error) throw error;
       return data || [];
-    },
+    }
   };
 }
