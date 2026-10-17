@@ -26,12 +26,13 @@ jobs:
         env:
           PUSH_BEFORE_SHA: ${{ github.event.before }}
           PUSH_AFTER_SHA: ${{ github.sha }}
-        run: node scripts/release-version.mjs
-
-      - name: Commit and push version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          node scripts/release-version.mjs
+
+      - name: Commit and push version bump
+        run: |
           git add VERSION src/index.html CHANGELOG.md
           git commit -m "chore: automatic version bump [skip ci]" || echo "No changes to commit"
           git push
