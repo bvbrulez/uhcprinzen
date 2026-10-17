@@ -572,6 +572,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-18:
+- `M – .githooks/pre-commit`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-18:
 - `M – src/scripts/transaction-service.mjs`
 
 ### Änderungen aus diesem Commit

@@ -2,28 +2,42 @@
 
 set -eu
 
-changelog="CHANGELOG.md"
-date_today=$(date +%Y-%m-%d)
-staged_files=$(git diff --cached --name-status -- . ':(exclude)CHANGELOG.md')
+# 1. Syntax Check for JS/MJS files
+# Use git diff to find staged JS/MJS files
+STAGED_JS=$(git diff --cached --name-only | grep -E '\.(js|mjs)$' || true)
 
-if [ -z "$staged_files" ]; then
+if [ -n "$STAGED_JS" ]; then
+  echo "Prüfe JavaScript-Syntax..."
+  for file in $STAGED_JS; do
+    if [ -f "$file" ]; then
+      node --check "$file" || { echo "Syntax-Fehler in $file"; exit 1; }
+    fi
+  done
+fi
+
+# 2. Changelog update
+CHANGELOG="CHANGELOG.md"
+DATE_TODAY=$(date +%Y-%m-%d)
+ALL_STAGED=$(git diff --cached --name-status -- . ':(exclude)CHANGELOG.md')
+
+if [ -z "$ALL_STAGED" ]; then
   exit 0
 fi
 
-if [ ! -f "$changelog" ]; then
+if [ ! -f "$CHANGELOG" ]; then
   {
     printf '%s\n\n' '# Changelog'
     printf '%s\n\n' 'Alle Änderungen sind chronologisch nach Commit aufgeführt.'
-  } > "$changelog"
+  } > "$CHANGELOG"
 fi
 
-temp_file=$(mktemp)
-file_list=$(mktemp)
-trap 'rm -f "$temp_file" "$file_list"' EXIT
+TEMP_FILE=$(mktemp)
+FILE_LIST=$(mktemp)
+trap 'rm -f "$TEMP_FILE" "$FILE_LIST"' EXIT
 
-printf '%s\n' "$staged_files" | sed 's/	/ – /; s/^/- `/; s/$/`/' > "$file_list"
+printf '%s\n' "$ALL_STAGED" | sed 's/	/ – /; s/^/- `/; s/$/`/' > "$FILE_LIST"
 
-awk -v date="$date_today" -v file_list="$file_list" '
+awk -v date="$DATE_TODAY" -v file_list="$FILE_LIST" '
   function print_entry() {
     print "### Änderungen aus diesem Commit"
     print ""
@@ -49,9 +63,9 @@ awk -v date="$date_today" -v file_list="$file_list" '
       print_entry()
     }
   }
-' "$changelog" > "$temp_file"
+' "$CHANGELOG" > "$TEMP_FILE"
 
-mv "$temp_file" "$changelog"
-git add "$changelog"
+mv "$TEMP_FILE" "$CHANGELOG"
+git add "$CHANGELOG"
 
-printf '%s\n' "CHANGELOG.md wurde für $date_today aktualisiert."
+printf '%s\n' "CHANGELOG.md wurde für $DATE_TODAY aktualisiert."
