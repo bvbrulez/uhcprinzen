@@ -97,12 +97,17 @@ export function createTransactionView({ money, formatDate }) {
       bar.setAttribute("aria-hidden", "true");
       const fill = document.createElement("i");
       fill.style.width = `${Number(amount) / maxCategory * 100}%`;
+      // Add a color accent based on the share
+      const sharePercent = Math.round(Number(amount) / maxCategory * 100);
+      if (sharePercent > 50) fill.style.backgroundColor = "var(--danger)";
+      else if (sharePercent > 20) fill.style.backgroundColor = "var(--gold)";
+      
       bar.append(fill);
       const total = document.createElement("strong");
       total.textContent = money(amount);
       const share = document.createElement("small");
       share.className = "category-share";
-      share.textContent = `${Math.round(Number(amount) / maxCategory * 100)} %`;
+      share.textContent = `${sharePercent} %`;
       row.append(label, bar, total, share);
       return row;
     }));

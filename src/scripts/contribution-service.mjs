@@ -43,6 +43,34 @@ export function createContributionService(client) {
       return data || [];
     },
 
+    async suggestMatches(transaction) {
+      const { members, rates } = await this.loadOverview();
+      const amount = Number(transaction.amount);
+      const description = transaction.description.toLowerCase();
+
+      // Find the applicable rate for the transaction date
+      const txDate = new Date(transaction.transaction_date);
+      const applicableRate = rates
+        .filter(r => new Date(r.quarter_start) <= txDate)
+        .sort((a, b) => new Date(b.quarter_start) - new Date(a.quarter_start))[0];
+
+      const expectedAmount = applicableRate?.quarterly_amount || 0;
+
+      return members
+        .filter(m => m.active)
+        .map(m => {
+          let score = 0;
+          if (description.includes(m.name.toLowerCase())) score += 10;
+          if (amount === expectedAmount) score += 5;
+          // Handle cases where multiple quarters are paid at once
+          if (amount > 0 && amount % expectedAmount === 0) score += 2;
+          
+          return { member: m, score };
+        })
+        .filter(match => match.score > 0)
+        .sort((a, b) => b.score - a.score);
+    },
+
     async updateMember(member) {
       const { error } = await client.from("team_members")
         .update({ active: !member.active })

@@ -22,6 +22,40 @@ export function createTransactionService(client) {
     return `${crypto.randomUUID()}-${safeName}`;
   }
 
+  async function validateTransaction(transaction, id = null) {
+    const { amount, transaction_date, description } = transaction;
+    const warnings = [];
+
+    if (amount > 1000) {
+      warnings.push(`Der Betrag von ${money(amount)} ist ungewöhnlich hoch. Bitte prüfen Sie die Eingabe.`);
+    }
+
+    if (id) {
+      const { data: duplicates } = await client.from("transactions")
+        .select("id")
+        .neq("id", id)
+        .eq("amount", amount)
+        .eq("transaction_date", transaction_date)
+        .ilike("description", `%${description.slice(0, 10)}%`)
+        .is("deleted_at", null);
+      if (duplicates?.length > 0) {
+        warnings.push("Es scheint eine ähnliche Buchung am selben Tag mit demselben Betrag zu existieren.");
+      }
+    } else {
+      const { data: duplicates } = await client.from("transactions")
+        .select("id")
+        .eq("amount", amount)
+        .eq("transaction_date", transaction_date)
+        .ilike("description", `%${description.slice(0, 10)}%`)
+        .is("deleted_at", null);
+      if (duplicates?.length > 0) {
+        warnings.push("Es gibt bereits eine Buchung mit demselben Betrag und Datum. Handelt es sich um eine Dublette?");
+      }
+    }
+
+    return warnings;
+  },
+
   async function loadYears(startDate) {
     const { data, error } = await client.rpc("get_transaction_years");
     if (!error) return (data || []).map(item => String(item.year));
@@ -300,12 +334,13 @@ export function createTransactionService(client) {
     },
 
     async save(transaction, id = null) {
+      const warnings = await validateTransaction(transaction, id);
       const query = id
         ? client.from("transactions").update(transaction).eq("id", id).select("id")
         : client.from("transactions").insert(transaction);
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return { data, warnings };
     },
 
     async setReconciled(id, reconciled) {
