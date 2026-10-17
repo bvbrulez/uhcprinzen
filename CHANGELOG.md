@@ -547,6 +547,10 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 ## 2026-10-17
 
+### Version 1.3.3
+
+- ci: optimize release workflow git config
+
 ### Version 1.3.2
 
 - fix: correct syntax errors in transaction-service.mjs
