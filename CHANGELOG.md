@@ -546,6 +546,12 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Admin-Anleitungen aktualisiert und das responsive Vereinsdesign aufgefrischt.
 
 ## 2026-10-17
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-17:
+- `M – tests/e2e/access-control.spec.mjs`
+- `M – tests/e2e/contribution-workflows.spec.mjs`
+
 
 ### Änderungen aus diesem Commit
 

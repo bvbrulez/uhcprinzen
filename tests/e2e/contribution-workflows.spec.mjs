@@ -38,16 +38,17 @@ test("admin can search and load income pages beyond the first 100 records", asyn
 test("admin can preview a CSV without importing it", async ({ page }) => {
   await signInAsAdmin(page);
   await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
+  await page.locator("#admin-menu-toggle").click();
   await page.locator("#import-transactions").click();
   await page.locator("#csv-file").setInputFiles(resolve(fixture));
   await expect(page.locator("#csv-preview")).toContainText("E2E Vorschau ohne Import");
   await expect(page.locator("#csv-import-submit")).toBeEnabled();
   await expect(page.locator("#csv-import-dialog")).toBeVisible();
 });
-
 test("CSV preview pages through rows and rejects files over the size limit", async ({ page }) => {
   await signInAsAdmin(page);
   await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
+  await page.locator("#admin-menu-toggle").click();
   await page.locator("#import-transactions").click();
   const rows = Array.from({ length: 51 }, (_, index) =>
     `2026-10-01;E2E Vorschauzeile ${String(index + 1).padStart(3, "0")};;25,00;Bankkonto;Prinzenkröten`);

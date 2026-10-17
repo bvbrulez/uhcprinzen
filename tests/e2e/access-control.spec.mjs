@@ -120,8 +120,8 @@ test("administrator sees contribution and transaction management controls", asyn
   await expect(page.locator("#recurring-dialog")).toBeVisible();
   await page.locator("#recurring-dialog [data-close-dialog]").click();
   await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
-  await expect(page.locator("#new-transaction")).toBeVisible();
-  await expect(page.locator("#manage-categories")).toBeVisible();
+  await expect(page.locator("#new-transaction")).toBeAttached();
+  await expect(page.locator("#manage-categories")).toBeAttached();
   await page.locator('.finance-section-tab[data-finance-view="contributions"]').click();
   await expect(page.locator("details.contribution-admin")).toBeVisible();
   const memberSearch = page.locator("#contribution-member-search");
@@ -197,6 +197,7 @@ test("administrator can attach a private receipt for members to view", async ({ 
   const description = `E2E Beleg ${Date.now()}`;
   await signIn(page, email, password);
   await page.locator('.finance-section-tab[data-finance-view="bookings"]').click();
+  await page.locator("#admin-menu-toggle").click();
   await page.locator("#new-transaction").click();
   await page.locator("#transaction-description").fill(description);
   await page.locator("#transaction-amount").fill("12.34");
