@@ -562,3 +562,12 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - `M – src/styles/base.css`
 - `M – src/styles/components.css`
 
+
+## 2026-10-18
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-18:
+- `D – tests/e2e/access-control.spec.mjs`
+- `D – tests/e2e/contribution-workflows.spec.mjs`
+
