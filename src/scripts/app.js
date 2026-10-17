@@ -50,6 +50,85 @@ const monthCloseSummaryElement = document.querySelector("#month-close-summary");
 const monthCloseChecklistElement = document.querySelector("#month-close-checklist");
 const downloadMonthCloseReport = document.querySelector("#download-month-close-report");
 const authState = document.querySelector("#auth-state");
+
+function showToast(message, type = "info") {
+  const container = document.querySelector("#toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = message;
+
+  if (type === "error") {
+    toast.style.borderLeftColor = "var(--danger)";
+  } else if (type === "success") {
+    toast.style.borderLeftColor = "var(--success)";
+  }
+
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(1rem)";
+    toast.style.transition = "opacity .3s, transform .3s";
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+function setupAdminQuickMenu() {
+  const toolbar = document.querySelector(".toolbar-actions");
+  if (!toolbar) return;
+
+  // Find the position to insert (after CSV export)
+  const exportCsvBtn = document.querySelector("#export-csv-transactions");
+  if (!exportCsvBtn) return;
+
+  // Only create if not already exists
+  if (document.querySelector("#admin-quick-menu")) return;
+
+  const menu = document.createElement("div");
+  menu.id = "admin-quick-menu";
+  menu.className = "admin-menu";
+  menu.setAttribute("data-admin-only", "");
+  menu.hidden = true;
+
+  menu.innerHTML = `
+    <button class="button button-secondary admin-menu-trigger" type="button" id="admin-menu-toggle">
+      <span class="admin-menu-label">⚙️ Admin</span>
+      <span class="nav-link-arrow" aria-hidden="true">↓</span>
+    </button>
+    <div class="admin-menu-dropdown" id="admin-menu-dropdown">
+      <button id="bulk-reconcile" class="admin-menu-item button" type="button" disabled>
+        <span class="icon" aria-hidden="true">✅</span> Auswahl abgleichen
+      </button>
+      <button id="manage-categories" class="admin-menu-item button" type="button">
+        <span class="icon" aria-hidden="true">🏷️</span> Kategorien verwalten
+      </button>
+      <button id="import-transactions" class="admin-menu-item button" type="button">
+        <span class="icon" aria-hidden="true">📥</span> CSV importieren
+      </button>
+      <button id="manage-recurring" class="admin-menu-item button" type="button">
+        <span class="icon" aria-hidden="true">🔄</span> Wiederholungen
+      </button>
+      <button id="new-transaction" class="admin-menu-item button" type="button">
+        <span class="icon" aria-hidden="true">➕</span> Neue Buchung
+      </button>
+    </div>
+  `;
+
+  exportCsvBtn.after(menu);
+
+  // Toggle logic
+  const toggleBtn = menu.querySelector("#admin-menu-toggle");
+  const dropdown = menu.querySelector("#admin-menu-dropdown");
+  toggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle("open");
+  });
+
+  document.addEventListener("click", () => {
+    dropdown.classList.remove("open");
+  });
+}
 const financeContent = document.querySelector("#finance-content");
 const financeHint = document.querySelector("#finance-login-hint");
 const transactionList = document.querySelector("#transaction-list");

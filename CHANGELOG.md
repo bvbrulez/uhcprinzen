@@ -544,3 +544,15 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
   Kontofilter synchronisiert; Kontosalden unabhängig davon ausgewiesen.
 - PDF-Export paginiert und auf 5.000 Buchungen begrenzt.
 - Admin-Anleitungen aktualisiert und das responsive Vereinsdesign aufgefrischt.
+
+## 2026-10-17
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-17:
+- `M – src/index.html`
+- `M – src/scripts/app.js`
+- `M – src/scripts/transaction-view.mjs`
+- `M – src/styles/base.css`
+- `M – src/styles/components.css`
+

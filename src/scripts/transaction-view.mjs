@@ -129,10 +129,25 @@ export function createTransactionView({ money, formatDate }) {
 
   function renderYearComparison(selector, currentValue, previousValue, kind) {
     const element = document.querySelector(selector);
-    element.className = "year-comparison";
+    element.className = "year-comparison trend-indicator";
     element.title = "Vergleich mit dem gleichen Zeitraum des Vorjahres.";
     const comparison = describeYearComparison(currentValue, previousValue, kind, money);
-    element.textContent = comparison.text;
+    
+    const icon = document.createElement("span");
+    icon.setAttribute("aria-hidden", "true");
+    if (comparison.tone === "positive") {
+      icon.textContent = "↑";
+      element.classList.add("trend-up");
+    } else if (comparison.tone === "negative") {
+      icon.textContent = "↓";
+      element.classList.add("trend-down");
+    } else {
+      icon.textContent = "→";
+      element.classList.add("year-comparison-neutral");
+    }
+
+    element.textContent = "";
+    element.append(icon, " ", comparison.text);
     element.classList.add(`year-comparison-${comparison.tone}`);
   }
 
@@ -160,7 +175,14 @@ export function createTransactionView({ money, formatDate }) {
     hasActiveFilters,
     callbacks,
   }) {
-    const setText = (selector, value) => { document.querySelector(selector).textContent = value; };
+    const setText = (selector, value, className = null) => { 
+      const el = document.querySelector(selector);
+      if (!el) return;
+      el.textContent = value; 
+      if (className) {
+        el.className = className;
+      }
+    };
     const totals = analytics?.totals || {};
     const accounts = analytics?.accounts || {};
     const bankBalance = Number(accounts.BANK || 0) + bankOpeningBalance;
@@ -182,8 +204,8 @@ export function createTransactionView({ money, formatDate }) {
       );
       setText(`#${prefix}-reconciled-summary`, `${Number(values.reconciled_count || 0)} · ${money(values.reconciled_amount || 0)}`);
     }
-    setText("#total-income", money(yearlyTotals.income));
-    setText("#total-expenses", money(yearlyTotals.expenses));
+    setText("#total-income", money(yearlyTotals.income), "amount-positive");
+    setText("#total-expenses", money(yearlyTotals.expenses), "amount-negative");
     renderYearComparison("#income-year-comparison", yearlyTotals.income, previousYearTotals?.income, "income");
     renderYearComparison("#expenses-year-comparison", yearlyTotals.expenses, previousYearTotals?.expenses, "expenses");
     setText("#total-balance", money(bankBalance + paypalBalance));
@@ -235,7 +257,7 @@ export function createTransactionView({ money, formatDate }) {
       row.children[3].append(description);
       row.children[4].textContent = item.type === "INCOME" ? "Einnahme" : "Ausgabe";
       row.children[5].textContent = `${item.type === "INCOME" ? "+" : "-"} ${money(item.amount)}`;
-      row.children[5].className = `number ${item.type === "INCOME" ? "positive" : "negative"}`;
+      row.children[5].className = `number ${item.type === "INCOME" ? "amount-positive" : "amount-negative"}`;
       row.children[6].textContent = item.category;
       row.children[7].textContent = item.reconciled_at
         ? `Abgeglichen ${formatDate(item.reconciled_at.slice(0, 10))}${item.reconciled_by_email ? ` · ${item.reconciled_by_email}` : ""}`

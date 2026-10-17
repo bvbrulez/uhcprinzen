@@ -44,6 +44,8 @@
       </div>
     </header>
 
+    <div id="toast-container" class="toast-container"></div>
+
     <main>
       <section
         id="finanzen"
@@ -109,7 +111,7 @@
                 <span id="total-income-label"
                   >Gesamteinnahmen · aktuelles Jahr · beide Konten</span
                 ><strong id="total-income">0,00 €</strong
-                ><small id="income-year-comparison" class="year-comparison"
+                ><small id="income-year-comparison" class="year-comparison trend-indicator"
                   >Vorjahresvergleich wird geladen …</small
                 >
               </div>
@@ -117,7 +119,7 @@
                 <span id="total-expenses-label"
                   >Gesamtausgaben · aktuelles Jahr · beide Konten</span
                 ><strong id="total-expenses">0,00 €</strong
-                ><small id="expenses-year-comparison" class="year-comparison"
+                ><small id="expenses-year-comparison" class="year-comparison trend-indicator"
                   >Vorjahresvergleich wird geladen …</small
                 >
               </div>
@@ -872,7 +874,7 @@
                 </button>
               </div>
               <div class="table-scroll">
-                <table>
+                <table class="finance-table">
                   <caption class="sr-only">
                     Buchungen
                   </caption>

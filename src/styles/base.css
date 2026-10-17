@@ -1,4 +1,4 @@
-:root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #132b3d; background: #edf4f4; line-height: 1.55; --navy: #102d49; --blue: #126b80; --gold: #f5bd35; --lime: #c9e84a; --line: #d8e5e5; --muted: #617984; --surface: #fff; --shadow: 0 1rem 2.8rem rgb(16 45 73 / 10%); }
+ :root {\n  --success: #2d8a4e;\n  --danger: #c43a3a; color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #132b3d; background: #edf4f4; line-height: 1.55; --navy: #102d49; --blue: #126b80; --gold: #f5bd35; --lime: #c9e84a; --line: #d8e5e5; --muted: #617984; --surface: #fff; --shadow: 0 1rem 2.8rem rgb(16 45 73 / 10%); }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { background: radial-gradient(ellipse at 88% 14%, rgb(201 232 74 / 15%), transparent 26rem), linear-gradient(180deg, #f5f9f8 0, #edf4f4 38rem); margin: 0; min-height: 100vh; }
