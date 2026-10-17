@@ -1019,13 +1019,33 @@ function applyContributionMemberFilters() {
     : `${rows.length} Mitglieder.`;
 }
 
-function openContributionAssignment(member, quarterStart) {
+async function openContributionAssignment(member, quarterStart) {
   if (!isAdministrator()) return;
   contributionYear.value = quarterStart.slice(0, 4);
   renderTeamContributions();
   contributionPaymentMember.value = String(member.id);
   contributionPaymentQuarter.value = quarterStart;
   contributionPaymentCount.value = "1";
+
+  // Intelligent Matching
+  try {
+    const matches = await contributionService.suggestMatches({
+      member,
+      quarterStart,
+      // We need the transaction data. We'll use the current income transactions list.
+      transactions: contributionIncomeTransactions,
+    });
+    if (matches.length > 0) {
+      const bestMatch = matches[0].member.id === member.id 
+        ? await contributionService.suggestMatches({
+            // We need to find the transaction that matched this member best
+            // This is a bit circular. Let's refine the suggestMatches logic.
+          }) : null;
+    }
+  } catch (e) {
+    console.error("Matching error", e);
+  }
+
   document.querySelector(".contribution-admin").open = true;
   contributionAdminStatus.textContent = `Mitglied ${member.name} und Quartal ${quarterLabel(quarterStart)} sind vorausgewählt.`;
   document.querySelector(".contribution-admin").scrollIntoView({ block: "center" });

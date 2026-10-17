@@ -567,6 +567,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-18:
+- `M – src/scripts/app.js`
+
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-18:
 - `M – src/scripts/contribution-service.mjs`
 - `M – src/scripts/transaction-service.mjs`
 - `M – src/scripts/transaction-view.mjs`
