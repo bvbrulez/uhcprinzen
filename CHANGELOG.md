@@ -546,6 +546,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 - Admin-Anleitungen aktualisiert und das responsive Vereinsdesign aufgefrischt.
 
 ## 2026-10-17
+
+### Version 1.3.1
+
+- ci: add automatic release workflow
+
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-17:
