@@ -578,6 +578,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 
 ## 2026-10-18
+
+### Version 1.3.5
+
+- docs: update README with latest instructions
+
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-18:
