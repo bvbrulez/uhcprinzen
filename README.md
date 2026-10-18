@@ -1,3 +1,8 @@
+Die GitHub Action startet
+→ Sie liest den geheimen GH_TOKEN aus den Einstellungen
+→ Sie nutzt diesen Token, um sich gegenüber GitHub als "berechtigter Nutzer" auszuweisen
+→ Sie kann nun die VERSION und den CHANGELOG.md ohne Fehler-Meldung pushen.
+
 # UHC Prinzen – Mannschaftskasse
 
 Die Anwendung verwaltet die Mannschaftskasse der Wesselbleker Prinzen. Sie

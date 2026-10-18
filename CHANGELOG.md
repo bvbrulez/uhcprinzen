@@ -578,6 +578,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 
 ## 2026-10-18
+### Änderungen aus diesem Commit
+
+- Aktualisiert am 2026-10-18:
+- `M – README.md`
+
 
 ### Version 1.3.4
 
