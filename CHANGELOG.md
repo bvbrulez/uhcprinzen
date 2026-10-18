@@ -578,6 +578,11 @@ Alle Änderungen sind chronologisch nach Commit aufgeführt.
 
 
 ## 2026-10-18
+
+### Version 1.3.4
+
+- ci: use GH_TOKEN for release pushes
+
 ### Änderungen aus diesem Commit
 
 - Aktualisiert am 2026-10-18:
